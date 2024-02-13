@@ -5,8 +5,8 @@
 BUILD_TYPE ?= release
 SINGLE_PRECISION ?= 0
 
-BUILD_DIR_DEBUG = $(DrillSimHome)/build_debug
-BUILD_DIR_RELEASE = $(DrillSimHome)/build_release
+BUILD_DIR_DEBUG = $(BeamNonlinHome)/build_debug
+BUILD_DIR_RELEASE = $(BeamNonlinHome)/build_release
 
 
 CXX_FLAGS =  -Wall -Wno-unused-function -fmax-errors=1 
@@ -27,10 +27,13 @@ endif
 
 
 EXE = $(BUILD_DIR)/BeamNonlin
-INC_DIR = $(DrillSimHome)/include
+INC_DIR = $(BeamNonlinHome)/include
 
 #Add source files here
 SRC = BeamNonlin.cpp \
+	  Solver.cpp \
+	  Utils.cpp \
+	  Containers.cpp
 
 
 OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(SRC)) 
@@ -44,7 +47,7 @@ $(EXE): $(OBJ) $(OBJ_CUDA)
 # Build C++ object files
 #*******************************************************************************
 #The -MMD option creates a list of dependencies, and it's included later
-$(BUILD_DIR)/%.o: %.cpp $(DrillSimHome)/.configure #adding .configure as a dependency, so that compilation is redone if this file is changed
+$(BUILD_DIR)/%.o: %.cpp  #adding .configure as a dependency, so that compilation is redone if this file is changed
 	g++ -MMD -c -o $@ $< $(CXX_FLAGS)
 
 
@@ -55,7 +58,7 @@ prep:
 
 .PHONY: clean 
 
-clean: $(DrillSimHome)/.configure
+clean: 
 	-rm -rf $(BUILD_DIR_DEBUG)
 	-rm -rf $(BUILD_DIR_RELEASE)
 

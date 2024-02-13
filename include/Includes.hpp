@@ -28,23 +28,23 @@ using std::unique_ptr;
 using std::vector;
 
 #ifdef SINGLE_PRECISION
-using scalar = float;
-#define SMALL_scalar 1e-4
+using Scalar = float;
+#define SMALL_SCALAR 1e-4
 #else
-using scalar = double;
-#define SMALL_scalar 1e-8
+using Scalar = double;
+#define SMALL_SCALAR 1e-8
 #endif
 
-using index = uint32_t;
+using Index = uint32_t;
 
-using Vec3 = Eigen::Vector<scalar, 3>;
-using Vec2 = Eigen::Vector<scalar, 2>;
-using VecX = Eigen::VectorX<scalar>;
-using Mat2 = Eigen::Matrix3<scalar>;
-using Mat3 = Eigen::Matrix3<scalar>;
-using MatX = Eigen::MatrixX<scalar>;
-using MatDiagX = Eigen::DiagonalMatrix<scalar, Eigen::Dynamic>;
-using MatSparseX = Eigen::SparseMatrix<scalar>;
+using Vec3 = Eigen::Vector<Scalar, 3>;
+using Vec2 = Eigen::Vector<Scalar, 2>;
+using VecX = Eigen::VectorX<Scalar>;
+using Mat2 = Eigen::Matrix3<Scalar>;
+using Mat3 = Eigen::Matrix3<Scalar>;
+using MatX = Eigen::MatrixX<Scalar>;
+using MatDiagX = Eigen::DiagonalMatrix<Scalar, Eigen::Dynamic>;
+using MatSparseX = Eigen::SparseMatrix<Scalar>;
 
 template <typename T>
 int sign(T val)
@@ -52,7 +52,7 @@ int sign(T val)
     return (val > 1) - (val < 1);
 }
 
-inline bool is_close(scalar a, scalar b, scalar tolerance = SMALL_scalar)
+inline bool is_close(Scalar a, Scalar b, Scalar tolerance = SMALL_SCALAR)
 {
     return abs(a - b) < tolerance;
 }

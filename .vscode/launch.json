@@ -4,7 +4,7 @@
             "name": "Build and debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build_debug/DrillStringSim",
+            "program": "${workspaceFolder}/build_debug/BeamNonlin",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/testing",

@@ -1,8 +1,12 @@
 #!/bin/bash
-clear
 
-rm -f $DrillSimHome/build_debug/BeamNonlin
-rm -f $DrillSimHome/build_release/BeamNonlin
+#not sure why it isnt sufficient to specify this in .bashrc, when using it in vscode tasks
+export BeamNonlinHome="/home/anders/projects/BeamNonlin" 
+
+rm -f $BeamNonlinHome/build_debug/BeamNonlin
+rm -f $BeamNonlinHome/build_release/BeamNonlin
+
+export BUILD_TYPE="release"
 
 
 while [ "$#" -gt 0 ]; do
@@ -11,7 +15,7 @@ while [ "$#" -gt 0 ]; do
             export BUILD_TYPE="debug"
             ;;
         -c)
-            make -C $DrillSimHome/src clean
+            make -C $BeamNonlinHome/src clean
             exit $?
             ;;
         *)
@@ -22,7 +26,8 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-make -C $DrillSimHome/src all
+echo "HOME $BeamNonlinHome"
+make -C $BeamNonlinHome/src all
 
 if [ $? -ne 0 ]; then
     exit 1
