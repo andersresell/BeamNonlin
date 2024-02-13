@@ -8,15 +8,15 @@ inline void calc_element_contribution(Index ie, const vector<Vec3> &nodes, vecto
     assert(ie < nodes.size() - 1);
     const Vec3 &x1 = nodes[ie];
     const Vec3 &x2 = nodes[ie + 1];
-    const Vec3 &u1 = disp_g[ie].u;
-    const Vec3 &u2 = disp_g[ie + 1].u;
+    const Vec3 &u1 = disp_g[ie].u_trans;
+    const Vec3 &u2 = disp_g[ie + 1].u_trans;
 
-    const Mat3 T = disp_g[ie].quat.to_triad();
+    const Mat3 T = disp_g[ie].u_quat.to_triad();
     const Vec3 t1 = T.col(0); // consider optimizing by using T directly
     const Vec3 t2 = T.col(1);
     const Vec3 t3 = T.col(2);
 
-    const Mat3 U = disp_g[ie + 1].quat.to_triad();
+    const Mat3 U = disp_g[ie + 1].u_quat.to_triad();
     const Vec3 u1 = U.col(0); // consider optimizing by using U directly
     const Vec3 u2 = U.col(1);
     const Vec3 u3 = U.col(2);

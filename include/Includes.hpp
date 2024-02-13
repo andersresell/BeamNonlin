@@ -38,13 +38,8 @@ using Scalar = double;
 using Index = uint32_t;
 
 using Vec3 = Eigen::Vector<Scalar, 3>;
-using Vec2 = Eigen::Vector<Scalar, 2>;
-using VecX = Eigen::VectorX<Scalar>;
-using Mat2 = Eigen::Matrix3<Scalar>;
+using Vec6 = Eigen::Vector<Scalar, 6>;
 using Mat3 = Eigen::Matrix3<Scalar>;
-using MatX = Eigen::MatrixX<Scalar>;
-using MatDiagX = Eigen::DiagonalMatrix<Scalar, Eigen::Dynamic>;
-using MatSparseX = Eigen::SparseMatrix<Scalar>;
 
 template <typename T>
 int sign(T val)

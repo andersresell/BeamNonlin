@@ -4,7 +4,7 @@
 void solve(Config &config, const Geometry &geometry)
 {
 
-    BeamSol beam_sol(config.N);
+    BeamSol beam_sol{geometry.get_N()};
 
     Timer timer;
     timer.start_counter();

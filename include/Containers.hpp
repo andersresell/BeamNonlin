@@ -10,6 +10,30 @@ struct Quaternion
     void from_triad(const Mat3 &R);
 };
 
+struct GlobalDisp
+{
+    Vec3 u_trans;
+    Quaternion u_quat;
+    GlobalDisp()
+    {
+        static_assert(sizeof(GlobalDisp) == sizeof(Scalar) * 7);
+        u_trans = {0, 0, 0};
+        u_quat.from_triad(Mat3::Identity());
+    }
+};
+
+struct BeamSol
+{
+    vector<GlobalDisp> u;
+    vector<Vec6> R_int, R_ext;
+    BeamSol(Index N)
+    {
+        u.resize(N);
+        R_int.resize(N);
+        R_ext.resize(N);
+    }
+};
+
 class Geometry
 {
     vector<Vec3> X;
