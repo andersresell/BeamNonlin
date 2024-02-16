@@ -1,4 +1,5 @@
 #!/bin/bash
+clear
 
 #not sure why it isnt sufficient to specify this in .bashrc, when using it in vscode tasks
 export BeamNonlinHome="/home/anders/projects/BeamNonlin" 

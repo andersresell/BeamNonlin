@@ -39,6 +39,8 @@ using Index = uint32_t;
 
 using Vec3 = Eigen::Vector<Scalar, 3>;
 using Vec6 = Eigen::Vector<Scalar, 6>;
+using Vec12 = Eigen::Vector<Scalar, 12>;
+
 using Mat3 = Eigen::Matrix3<Scalar>;
 
 template <typename T>
@@ -50,4 +52,16 @@ int sign(T val)
 inline bool is_close(Scalar a, Scalar b, Scalar tolerance = SMALL_SCALAR)
 {
     return abs(a - b) < tolerance;
+}
+
+inline bool is_orthogonal(const Mat3 &R)
+{
+    return is_close(R.determinant(), 1.0) && is_close((R.transpose() - R.inverse()).norm(), 0.0);
+}
+
+inline Mat3 skew_symmetric(const Vec3 &a)
+{
+    return Mat3{{0, -a.z(), a.y()},
+                {a.z(), 0, -a.x()},
+                {-a.y(), a.x(), 0}};
 }

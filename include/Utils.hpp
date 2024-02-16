@@ -17,9 +17,9 @@ public:
 
 constexpr Scalar STANDARD_GRAVITY = 9.80665;
 
-inline Mat3 skew_symmetric(const Vec3 &a)
+enum class BC_Case
 {
-    return Mat3{{0, -a.z(), a.y()},
-                {a.z(), 0, -a.x()},
-                {-a.y(), a.x(), 0}};
-}
+    NONE,
+    CANTILEVER,
+    SIMPLY_SUPPORTED
+};

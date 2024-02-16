@@ -31,10 +31,11 @@ INC_DIR = $(BeamNonlinHome)/include
 
 #Add source files here
 SRC = BeamNonlin.cpp \
-	  Solver.cpp \
 	  Utils.cpp \
-	  Containers.cpp
-
+	  Solver.cpp \
+	  SolverUtils.cpp \
+	  Geometry.cpp \
+	  Config.cpp \
 
 OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(SRC)) 
 
@@ -43,6 +44,9 @@ all: prep $(EXE)
 $(EXE): $(OBJ) $(OBJ_CUDA)
 	g++ -o $(EXE) $^ $(LDLIBS) $(CXX_FLAGS)
 
+
+
+
 #*******************************************************************************
 # Build C++ object files
 #*******************************************************************************
@@ -50,7 +54,7 @@ $(EXE): $(OBJ) $(OBJ_CUDA)
 $(BUILD_DIR)/%.o: %.cpp  #adding .configure as a dependency, so that compilation is redone if this file is changed
 	g++ -MMD -c -o $@ $< $(CXX_FLAGS)
 
-
+-include $(OBJ:.o=.d)
 
 prep:
 	mkdir -p $(BUILD_DIR_DEBUG)
