@@ -5,6 +5,7 @@
         "complex": "cpp",
         "bitset": "cpp",
         "string_view": "cpp",
-        "iomanip": "cpp"
+        "iomanip": "cpp",
+        "ostream": "cpp"
     },
 }

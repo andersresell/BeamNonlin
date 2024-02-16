@@ -87,10 +87,12 @@ void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &
     Index N = geometry.get_N();
     Index n_steps = config.get_n_steps();
     Scalar t = config.t;
+    Scalar dt = config.dt;
 
     /*Create "header"*/
-    ost << "#N, t, n, n_steps, n_w\n"
-        << N << "," << t << "," << n << "," << n_steps << "," << n_w << "\n"
+    ost
+        << "#N, n_steps, n_write, t, dt\n"
+        << N << "," << n_steps << "," << n_w << "," << t << "," << dt << "\n"
         << "\n";
     /*Write solution*/
     // ost << "X1, X2, X3, u1, u2, u3, U11, U12, U13, U21, U22, U23, U31, U32, U33\n";
