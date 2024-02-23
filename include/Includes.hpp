@@ -43,6 +43,7 @@ using Index = uint32_t;
 
 using Vec3 = Eigen::Vector<Scalar, 3>;
 using Vec6 = Eigen::Vector<Scalar, 6>;
+using Vec7 = Eigen::Vector<Scalar, 7>;
 using Vec12 = Eigen::Vector<Scalar, 12>;
 
 using Mat3 = Eigen::Matrix3<Scalar>;

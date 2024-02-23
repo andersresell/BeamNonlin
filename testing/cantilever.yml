@@ -1,8 +1,8 @@
 setup:
-  CFL: 0.9
-  n_max: 50000
-  t_max: 10
-  n_write: 1000
+  CFL: 0.1
+  n_max: 5000000
+  t_max: 5
+  n_write: 100
   n_threads: 4
   save_csv : true
   gravity_enabled : true
@@ -15,7 +15,7 @@ properties:
  
 geometry:
   L0: 10
-  N: 100
+  N: 2
   D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 

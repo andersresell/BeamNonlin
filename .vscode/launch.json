@@ -12,7 +12,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build_debug/BeamNonlin",
-            "args": [],
+            "args": [
+                "cantilever.yml"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/testing",
             "environment": [],

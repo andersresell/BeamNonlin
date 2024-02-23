@@ -35,7 +35,7 @@ class Plotter:
         self.L0 =  X[-1][0] - X[0][0]
         self.n_steps = int(header[1])
         self.n_write = int(header[2])
-        self.n_plot_triad = int(self.N/MAX_TRIADS)
+        self.n_plot_triad = max(int(self.N/MAX_TRIADS),1)
         self.write_gif=write_gif
         if write_gif:
             self.output_tmp = "output_tmp"
@@ -65,7 +65,7 @@ class Plotter:
             data = self.read_data(n)
             X = data[:,0:3]
             
-            quiver_scale = L0/5
+            quiver_scale = self.L0/10
             u = data[:,3:6]
             x = X+u
             assert self.N==x.shape[0]
@@ -86,7 +86,7 @@ class Plotter:
            
             plt.title("n="+str(n)+", t="+str(self.t)+", dt="+str(self.dt))
             
-            axlen = 1.01*L0
+            axlen = 1.01*self.L0
             ax.set_xlim(0,axlen)
             ax.set_ylim(-axlen/2,axlen/2)
             ax.set_zlim(-axlen/2,axlen/2)
@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     p = Plotter("testing",write_gif=False)
     p.plot_end_node_transient()
-    p.animate_vertical_disp()  
-    #p.animate_3d()
+    #p.animate_vertical_disp()  
+    p.animate_3d()
     
     plt.show()

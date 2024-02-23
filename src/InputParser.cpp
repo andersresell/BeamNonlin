@@ -72,7 +72,7 @@ void InputParser::parse_yaml_config_options(Config &config) const
     config.rho = read_required_option<Scalar>(root_name_properties, "rho");
     if (config.CFL >= 1)
     {
-        throw runtime_error(string("CFL >=1, CFL = " + std::to_string(config.CFL) + "\n"));
+        cout << "Warning, CFL >= 1 (CFL = " << config.CFL << ")\n";
     }
     Scalar rho;
     Scalar CFL = 0.9;

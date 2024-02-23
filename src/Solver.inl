@@ -73,33 +73,41 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     const Scalar ul = (ln * ln - l0 * l0) / (ln + l0);
     assert(is_close(ul, ln - l0));
 
-    const Scalar theta_l1 = 0.5 * asin(-t3.dot(e2) + t2.dot(e3));
-    const Scalar theta_l2 = 0.5 * asin(-t2.dot(e1) + t1.dot(e2));
-    const Scalar theta_l3 = 0.5 * asin(-t3.dot(e1) + t1.dot(e3));
-    const Scalar theta_l4 = 0.5 * asin(-u3.dot(e2) + u2.dot(e3));
-    const Scalar theta_l5 = 0.5 * asin(-u2.dot(e1) + u1.dot(e2));
-    const Scalar theta_l6 = 0.5 * asin(-u3.dot(e1) + u1.dot(e3));
+    const Scalar theta_l1 = asin(0.5 * (-t3.dot(e2) + t2.dot(e3)));
+    const Scalar theta_l2 = asin(0.5 * (-t2.dot(e1) + t1.dot(e2)));
+    const Scalar theta_l3 = asin(0.5 * (-t3.dot(e1) + t1.dot(e3)));
+    const Scalar theta_l4 = asin(0.5 * (-u3.dot(e2) + u2.dot(e3)));
+    const Scalar theta_l5 = asin(0.5 * (-u2.dot(e1) + u1.dot(e2)));
+    const Scalar theta_l6 = asin(0.5 * (-u3.dot(e1) + u1.dot(e3)));
 
-    constexpr Scalar MAX_ANGLE = 5 * M_PI / 180; // Local angles should be small, the value here is arbitrarily chosen
-    assert(abs(theta_l1) <= MAX_ANGLE);
-    assert(abs(theta_l2) <= MAX_ANGLE);
-    assert(abs(theta_l3) <= MAX_ANGLE);
-    assert(abs(theta_l4) <= MAX_ANGLE);
-    assert(abs(theta_l5) <= MAX_ANGLE);
-    assert(abs(theta_l6) <= MAX_ANGLE);
+    constexpr Scalar MAX_ANGLE = 89 * M_PI / 180;
+    assert(abs(theta_l1) < MAX_ANGLE);
+    assert(abs(theta_l2) < MAX_ANGLE);
+    assert(abs(theta_l3) < MAX_ANGLE);
+    assert(abs(theta_l4) < MAX_ANGLE);
+    assert(abs(theta_l5) < MAX_ANGLE);
+    assert(abs(theta_l6) < MAX_ANGLE);
+
+    Eigen::Matrix<Scalar, 12, 7> F_transpose; // Transpose of F where zero rows in F are excluded
+    constexpr Index f4 = 0;
+    constexpr Index f5 = 1;
+    constexpr Index f6 = 2;
+    constexpr Index f7 = 3;
+    constexpr Index f10 = 4;
+    constexpr Index f11 = 5;
+    constexpr Index f12 = 6;
 
     // calculate F connecting infinitesimal global and local variable
     // optimize zero rows later
 
-    Vec12 f1,
-        f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12;
-    f1.setConstant(0);
-    f2.setConstant(0);
-    f3.setConstant(0);
-    f8.setConstant(0);
-    f9.setConstant(0);
+    // Vec12 f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12;
+    // f1.setConstant(0);
+    // f2.setConstant(0);
+    // f3.setConstant(0);
+    // f8.setConstant(0);
+    // f9.setConstant(0);
 
-    f7 << -e1, Vec3::Zero(), e1, Vec3::Zero(); //(17.19)
+    F_transpose.col(f7) << -e1, Vec3::Zero(), e1, Vec3::Zero(); //(17.19)
 
     const Mat3 A = 1.0 / ln * (Mat3::Identity() - e1 * e1.transpose());
     assert(is_close((A - A.transpose()).norm(), 0.0));
@@ -126,42 +134,42 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     // cout << "h3 " << h3.transpose() << endl;
     // cout << "h6 " << h6.transpose() << endl;
 
-    f4 = 1 / (2 * cos(theta_l1)) * (Lr3 * t2 - Lr2 * t3 + h1);
-    f5 = 1 / (2 * cos(theta_l2)) * (Lr2 * t1 + h2);
-    f6 = 1 / (2 * cos(theta_l3)) * (Lr3 * t1 + h3);
-    f10 = 1 / (2 * cos(theta_l4)) * (Lr3 * u2 - Lr2 * u3 + h4);
-    f11 = 1 / (2 * cos(theta_l5)) * (Lr2 * u1 + h5); // seems to be an error in the book for f11 and f12. it should be + in front of h6 and h6 (it's + in the paper)
-    f12 = 1 / (2 * cos(theta_l6)) * (Lr3 * u1 + h6);
+    F_transpose.col(f4) = 1 / (2 * cos(theta_l1)) * (Lr3 * t2 - Lr2 * t3 + h1);
+    F_transpose.col(f5) = 1 / (2 * cos(theta_l2)) * (Lr2 * t1 + h2);
+    F_transpose.col(f6) = 1 / (2 * cos(theta_l3)) * (Lr3 * t1 + h3);
+    F_transpose.col(f10) = 1 / (2 * cos(theta_l4)) * (Lr3 * u2 - Lr2 * u3 + h4);
+    F_transpose.col(f11) = 1 / (2 * cos(theta_l5)) * (Lr2 * u1 + h5); // seems to be an error in the book for f11 and f12. it should be + in front of h6 and h6 (it's + in the paper)
+    F_transpose.col(f12) = 1 / (2 * cos(theta_l6)) * (Lr3 * u1 + h6);
 
     // cout << "f6\n"
     //      << f6 << "\nf12\n"
     //      << f12 << endl;
 
-    Eigen::Matrix<Scalar, 12, 12> F;
-    F << f1.transpose(),
-        f2.transpose(),
-        f3.transpose(),
-        f4.transpose(),
-        f5.transpose(),
-        f6.transpose(),
-        f7.transpose(),
-        f8.transpose(),
-        f9.transpose(),
-        f10.transpose(),
-        f11.transpose(),
-        f12.transpose();
+    // Eigen::Matrix<Scalar, 12, 12> F;
+    // F << f1.transpose(),
+    //     f2.transpose(),
+    //     f3.transpose(),
+    //     f4.transpose(),
+    //     f5.transpose(),
+    //     f6.transpose(),
+    //     f7.transpose(),
+    //     f8.transpose(),
+    //     f9.transpose(),
+    //     f10.transpose(),
+    //     f11.transpose(),
+    //     f12.transpose();
 
     // cout << "F^T\n"
     //      << F.transpose() << endl;
 
     /*Calculate local internal forces based on linear 3D beam theory*/
-    Vec12 R_int_l = calc_nodal_forces_local(ri_e, ro_e, l0, E, G, ul,
-                                            theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
+    Vec7 R_int_l = calc_nodal_forces_local(ri_e, ro_e, l0, E, G, ul,
+                                           theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
 
     // cout << "R_int_l:\n"
     //      << R_int_l << endl;
 
-    const Vec12 R_int = F.transpose() * R_int_l;
+    const Vec12 R_int = F_transpose * R_int_l;
     // cout << "R_int:\n"
     //      << R_int << endl;
 
@@ -174,9 +182,9 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     R[ie + 1].rot -= R_int.segment(9, 3);
 }
 
-inline Vec12 calc_nodal_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
-                                     Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
-                                     Scalar theta_5l, Scalar theta_6l)
+inline Vec7 calc_nodal_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
+                                    Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
+                                    Scalar theta_5l, Scalar theta_6l)
 {
 
     const Scalar A = M_PI * (ro * ro - ri * ri);
@@ -213,7 +221,8 @@ inline Vec12 calc_nodal_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, 
     const Scalar M3 = E * I / l0 * (4 * theta_3l + 2 * theta_6l);
     const Scalar M6 = E * I / l0 * (2 * theta_3l + 4 * theta_6l);
 
-    Vec12 R_int_l = {F1, 0, 0, M1, M2, M3, F4, 0, 0, M4, M5, M6};
+    // Vec12 R_int_l = {F1, 0, 0, M1, M2, M3, F4, 0, 0, M4, M5, M6};
+    Vec7 R_int_l = {M1, M2, M3, F4, M4, M5, M6};
     // cout << "fix\n";
     // //Vec12 R_int_l = {0, 0, 0, 0, M2, M3, 0, 0, 0, 0, M5, M6};
     // Vec12 R_int_l = {0, 0, 0, 0, M2, M3, 0, 0, 0, 0, M5, M6};
@@ -411,8 +420,8 @@ inline void calc_static_loads(const Config &config, const Geometry &geometry, ve
             const Scalar m = geometry.dx_e(ie) * geometry.A_e(ie) * rho;
             R_static[ie].trans.z() += -m * STANDARD_GRAVITY / 2;
             R_static[ie + 1].trans.z() += -m * STANDARD_GRAVITY / 2;
-            // R_static[ie].trans.x() += m * STANDARD_GRAVITY / 2;
-            // R_static[ie + 1].trans.x() += m * STANDARD_GRAVITY / 2;
+            // R_static[ie].trans.y() += m * STANDARD_GRAVITY / 2;
+            // R_static[ie + 1].trans.y() += m * STANDARD_GRAVITY / 2;
         }
     }
 }
