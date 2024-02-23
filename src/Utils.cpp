@@ -10,7 +10,7 @@ Scalar Timer::get_elapsed_time_sec() const
 
 void Timer::print_elapsed_time() const
 {
-    cout << "Elapset time = " << get_elapsed_time_sec() << " sec\n";
+    cout << "Elapsed time = " << get_elapsed_time_sec() << " sec\n";
 };
 
 void Timer::start_counter() { start_time = Clock::now(); }

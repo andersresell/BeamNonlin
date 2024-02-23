@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+#other
+*.csv
+*.gif
+*.txt
+
+#directories
+#/testing_*

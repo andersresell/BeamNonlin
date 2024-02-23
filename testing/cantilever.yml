@@ -1,0 +1,25 @@
+setup:
+  CFL: 0.9
+  n_max: 50000
+  t_max: 10
+  n_write: 1000
+  n_threads: 4
+  save_csv : true
+  gravity_enabled : true
+  bc_case : "cantilever" 
+  
+properties:
+  E: 200.0e+09
+  nu: 0.3
+  rho: 7000
+ 
+geometry:
+  L0: 10
+  N: 100
+  D_outer_uniform: 0.1
+  D_inner_uniform: 0.05
+
+
+
+  
+

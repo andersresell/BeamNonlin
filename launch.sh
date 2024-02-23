@@ -17,7 +17,7 @@ if [ $? -ne 0 ]; then
 fi
 
 
-simdir=$BeamNonlinHome/testing
+simdir=$BeamNonlinHome/testing 
 cd $simdir
-$builddir/BeamNonlin 
+$builddir/BeamNonlin cantilever.yml #> $BeamNonlinHome/console_output.txt
 

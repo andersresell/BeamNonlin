@@ -9,7 +9,7 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
     R.resize(N);
     R_static.resize(N);
     M_inv.resize(N);
-    J_u.resize(N);
+    J_u.resize(N, Vec3::Zero());
 
     const Scalar rho = config.rho;
 
@@ -45,7 +45,9 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
         from https://en.wikipedia.org/wiki/List_of_moments_of_inertia :
         */
         Scalar Je11 = rho * M_PI * dx / 2 * (pow(ro, 4) - pow(ri, 4));
-        Scalar Je22 = rho * M_PI * dx / 12 * (3 * (pow(ro, 4) - pow(ri, 4)) + dx * dx * (ro * ro - ri * ri));
+        Scalar Je22;
+        // Je22 = rho * M_PI * dx / 12 * (3 * (pow(ro, 4) - pow(ri, 4)) + dx * dx * (ro * ro - ri * ri));
+        Je22 = 1.0 / 12 * m * dx * dx; // Moment of inertia of thin rod. Using this instead of the exact moment of inertia as Belytscho does
         Scalar Je33 = Je22;
 
         // Not the exact same procedure as proposed in Crisfield.
@@ -96,7 +98,7 @@ void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &
         << "\n";
     /*Write solution*/
     // ost << "X1, X2, X3, u1, u2, u3, U11, U12, U13, U21, U22, U23, U31, U32, U33\n";
-    Index w = 7;
+    Index w = 12;
     ost << setw(w) << "#X1," << setw(w) << "X2," << setw(w) << "X3,"
         << setw(w) << "u1," << setw(w) << "u2," << setw(w) << "u3,"
         << setw(w) << "U11," << setw(w) << "U12," << setw(w) << "U13,"
@@ -146,4 +148,40 @@ void create_output_dir(Config &config)
     {
         throw runtime_error{string("Failed to create output directory:" + output_dir + "\n")};
     }
+}
+
+Vec3Quat::Vec3Quat()
+{
+    static_assert(sizeof(Vec3Quat) == sizeof(Scalar) * 7);
+    trans = {0, 0, 0};
+    rot.from_matrix(Mat3::Identity());
+}
+
+ostream &operator<<(ostream &os, const Vec3Quat &rhs)
+{
+    return os << "{" << rhs.trans.transpose() << ",\n"
+              << rhs.rot.to_matrix() << "}";
+}
+
+void Vec3Quat::print_array(vector<Vec3Quat> arr, string label, bool print_trans, bool print_rot)
+{
+    if (label != "")
+        cout << label << ":" << endl;
+    if (print_trans)
+    {
+        cout << "trans:\n";
+        for (const auto &e : arr)
+        {
+            cout << e.trans.transpose() << ",\n";
+        }
+    }
+    if (print_rot)
+    {
+        cout << "\nrot:\n";
+        for (const auto &e : arr)
+        {
+            cout << "{" << e.rot.to_matrix() << "},\n";
+        }
+    }
+    cout << endl;
 }

@@ -9,6 +9,7 @@ struct Quaternion
     void from_matrix(const Mat3 &R);
     Scalar norm() const;
     Scalar norm_sqr() const;
+    void normalize();
 };
 
 #include "../src/Containers.inl"

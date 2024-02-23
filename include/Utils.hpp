@@ -16,6 +16,7 @@ public:
 };
 
 constexpr Scalar STANDARD_GRAVITY = 9.80665;
+constexpr Index N_THREADS_MAX = 10;
 
 enum class BC_Case
 {
@@ -23,3 +24,8 @@ enum class BC_Case
     CANTILEVER,
     SIMPLY_SUPPORTED
 };
+
+const map<string, BC_Case> BC_case_from_string{
+    {"none", BC_Case::NONE},
+    {"cantilever", BC_Case::CANTILEVER},
+    {"simply_supported", BC_Case::SIMPLY_SUPPORTED}};
