@@ -60,6 +60,28 @@ void InputParser::parse_yaml_config_options(Config &config) const
     config.n_write = read_optional_option<Index>(root_name_setup, "n_write", 1);
     config.bc_case = read_required_enum_option<BC_Case>(root_name_setup, "bc_case", BC_case_from_string);
     config.gravity_enabled = read_required_option<bool>(root_name_setup, "gravity_enabled");
+    if (config.gravity_enabled)
+    {
+        vector<Scalar> gravity_acc;
+        /*Specifying user defined gravity or default standard gravity*/
+        if (root_node[root_name_setup]["gravity_acc"])
+        {
+            gravity_acc = read_required_option<vector<Scalar>>(root_name_setup, "gravity_acc");
+            if (gravity_acc.size() != 3)
+            {
+                throw runtime_error("length of gravity_acc option must be 3, but it is " + to_string(gravity_acc.size()) + "\n");
+            }
+            else
+            {
+                config.gravity_acc = {gravity_acc[0], gravity_acc[1], gravity_acc[2]};
+            }
+        }
+        else
+        {
+            config.gravity_acc = {0, 0, -STANDARD_GRAVITY};
+        }
+    }
+
     config.n_threads = read_optional_option<Index>(root_name_setup, "n_threads", 1);
     if (config.n_threads > N_THREADS_MAX)
     {

@@ -5,8 +5,11 @@ setup:
   n_write: 100
   n_threads: 4
   save_csv : true
-  gravity_enabled : true
+  gravity_enabled: true
+  gravity_acc: [0, 10, 10]
+
   bc_case : "cantilever" 
+
   
 properties:
   E: 200.0e+09

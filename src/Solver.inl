@@ -411,6 +411,7 @@ inline void calc_static_loads(const Config &config, const Geometry &geometry, ve
     }
 
     const bool gravity_enabled = config.gravity_enabled;
+    const Vec3 &g = config.gravity_acc;
     const Scalar rho = config.rho;
 
     for (Index ie = 0; ie < geometry.get_Ne(); ie++)
@@ -418,8 +419,8 @@ inline void calc_static_loads(const Config &config, const Geometry &geometry, ve
         if (gravity_enabled)
         {
             const Scalar m = geometry.dx_e(ie) * geometry.A_e(ie) * rho;
-            R_static[ie].trans.z() += -m * STANDARD_GRAVITY / 2;
-            R_static[ie + 1].trans.z() += -m * STANDARD_GRAVITY / 2;
+            R_static[ie].trans += 0.5 * m * g;
+            R_static[ie + 1].trans += 0.5 * m * g;
             // R_static[ie].trans.y() += m * STANDARD_GRAVITY / 2;
             // R_static[ie + 1].trans.y() += m * STANDARD_GRAVITY / 2;
         }

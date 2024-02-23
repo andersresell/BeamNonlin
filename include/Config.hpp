@@ -15,6 +15,7 @@ struct Config
     string output_dir;
     BC_Case bc_case = BC_Case::NONE;
     bool gravity_enabled = true;
+    Vec3 gravity_acc;
     Index n_threads;
 
     Scalar dt;
