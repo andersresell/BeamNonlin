@@ -5,7 +5,7 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
                                       vector<Vec3Vec3> &R, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
 {
 
-    if (n_glob > 0)
+    if (n_glob == 2)
     {
         int a = 1;
     }
@@ -16,8 +16,8 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     const Vec3 &d1 = d[ie].trans;
     const Vec3 &d2 = d[ie + 1].trans;
 
-    // cout << "d1 = " << d1.transpose() << endl;
-    // cout << "d2 = " << d2.transpose() << endl;
+    cout << "d1 = " << d1.transpose() << endl;
+    cout << "d2 = " << d2.transpose() << endl;
 
     const Mat3 T = d[ie].rot.to_matrix();
     const Vec3 t1 = T.col(0);
@@ -29,11 +29,18 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     const Vec3 u2 = U.col(1);
     const Vec3 u3 = U.col(2);
 
-    // cout << "u1 u2 u3\n"
-    //      << u1.transpose() << ", " << u2.transpose() << ", " << u3.transpose() << endl;
+    cout << "U from quat\n"
+         << U << endl;
 
-    // cout << "t1 t2 t3\n"
-    //      << t1.transpose() << ", " << t2.transpose() << ", " << t3.transpose() << endl;
+    // cout << "u1 u2 u3\n"
+    //      << u1.transpose() << ",\n"
+    //      << u2.transpose() << ",\n"
+    //      << u3.transpose() << endl;
+
+    cout << "t1 t2 t3\n"
+         << t1.transpose() << ",\n"
+         << t2.transpose() << ",\n"
+         << t3.transpose() << endl;
 
     // calculate the first unit vector
     const Scalar l0 = (X2 - X1).norm();
@@ -42,7 +49,7 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     const Vec3 e1 = (X2 + d2 - (X1 + d1)) / ln;
     assert(is_close(e1.norm(), 1.0));
 
-    // cout << "e1 = " << e1.transpose() << endl;
+    cout << "e1 = " << e1.transpose() << endl;
     // Calculate intermediate rotation between triads
     const Mat3 DeltaR = U * T.transpose();
     Quaternion qDeltaR;
@@ -60,10 +67,10 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     // computing element unit vectors e2 and e3 by rotating the unit vector
     // r1 on to e1.
     const Vec3 e2 = r2 - r2.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
-    // const Vec3 e3 = r3 - r3.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
-    const Vec3 e3 = e1.cross(e2);
-    // cout << "e2 = " << e2.transpose() << endl;
-    // cout << "e3 = " << e3.transpose() << endl;
+    const Vec3 e3 = r3 - r3.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
+    // const Vec3 e3 = e1.cross(e2);
+    cout << "e2 = " << e2.transpose() << endl;
+    cout << "e3 = " << e3.transpose() << endl;
 
     // compute local displacements from global displacements.
     // Taking u_l = ln-l0 is not recommended since subtracting two large
@@ -79,6 +86,9 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     const Scalar theta_l4 = asin(0.5 * (-u3.dot(e2) + u2.dot(e3)));
     const Scalar theta_l5 = asin(0.5 * (-u2.dot(e1) + u1.dot(e2)));
     const Scalar theta_l6 = asin(0.5 * (-u3.dot(e1) + u1.dot(e3)));
+    // cout << "n_glob " << n_glob << endl;
+    // assert(theta_l1 == 0);
+    // assert(theta_l4 == 0);
 
     constexpr Scalar MAX_ANGLE = 89 * M_PI / 180;
     assert(abs(theta_l1) < MAX_ANGLE);
@@ -166,12 +176,12 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     Vec7 R_int_l = calc_nodal_forces_local(ri_e, ro_e, l0, E, G, ul,
                                            theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
 
-    // cout << "R_int_l:\n"
-    //      << R_int_l << endl;
+    cout << "R_int_l:\n"
+         << R_int_l << endl;
 
     const Vec12 R_int = F_transpose * R_int_l;
-    // cout << "R_int:\n"
-    //      << R_int << endl;
+    cout << "R_int:\n"
+         << R_int << endl;
 
     /*R is the residual force moved to the right hand side. If we have:
     M*a + R_int = R_ext, this is here instead handled as:
@@ -281,8 +291,8 @@ inline Vec7 calc_nodal_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, S
 
 inline void assemble(const Config &config, const Geometry &geometry, BeamSystem &beam_system)
 {
-    Index N = geometry.get_N();
-    Index Ne = geometry.get_Ne();
+    const Index N = geometry.get_N();
+    const Index Ne = N - 1;
 
     const vector<Vec3> X = geometry.get_X();
     const Scalar E = config.E;
@@ -345,21 +355,21 @@ inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3
                                      const vector<Vec3> &J_u, const vector<Vec3Vec3> &R, const vector<Vec3Vec3> &R_static)
 {
 
-    // print_std_vector(R, "R");
+    print_std_vector(R, "R");
 
-    // print_std_vector(R_static, "R_static");
+    print_std_vector(R_static, "R_static");
 
-    // Vec3Quat::print_array(u, "u", true, true);
+    Vec3Quat::print_array(u, "u", true, true);
 
-    // print_std_vector(v, "v");
+    print_std_vector(v, "v");
 
     const Index N = u.size();
 #pragma omp parallel for
     for (Index i = 0; i < N; i++)
     {
-        // cout << "remove!\n";
-        // if (i == 0)
-        //     continue;
+        cout << "remove!\n";
+        if (i == 0)
+            continue;
         const Vec3 R_trans = R_static[i].trans + R[i].trans;
         const Vec3 R_rot = R_static[i].rot + R[i].rot;
 
@@ -368,26 +378,27 @@ inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3
         --------------------------------------------------------------------*/
         v[i].trans += dt * M_inv[i] * R_trans;
         u[i].trans += dt * v[i].trans;
-
+        cout << "v " << v[i].trans << endl
+             << "u " << u[i].trans << endl;
         /*--------------------------------------------------------------------
         Rotations
         --------------------------------------------------------------------*/
         Quaternion &quat = u[i].rot;
         // Optimize this! use Quaternion product directly instead to rotate
         Mat3 U = quat.to_matrix();
-        // cout << "U prior\n"
-        //      << U << endl;
+        cout << "U prior\n"
+             << U << endl;
         const Vec3 R_rot_u = U.transpose() * R_rot; /*Transform nodal force to node frame*/
         Vec3 &omega_u = v[i].rot;                   /*The angular velocities are related to the body frame*/
         const Vec3 &J_u_i = J_u[i];
 
         /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
-        // cout << "R_rot_u " << R_rot_u << endl;
-        // cout << "J_u " << J_u_i << endl;
+        cout << "R_rot_u " << R_rot_u << endl;
+        cout << "J_u " << J_u_i << endl;
         const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u_i.array() * omega_u.array()})).array() / J_u_i.array();
-        // cout << "omega_u_dot " << omega_u_dot << endl;
+        cout << "omega_u_dot " << omega_u_dot << endl;
         omega_u += dt * omega_u_dot;
-        // cout << "omega_u " << omega_u << endl;
+        cout << "omega_u " << omega_u << endl;
         /*How to update rotations: For now I will use Hughes-Winges.
         I could also consider using the Quaternion diff eqn to do it, and normalize it,
         would probably be better/faster
@@ -395,8 +406,8 @@ inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3
         Hughes Winges: (Computing inverse or direct solver?)*/
         U = (Mat3::Identity() - 0.5 * dt * skew_symmetric(omega_u)).inverse() *
             (Mat3::Identity() + 0.5 * dt * skew_symmetric(omega_u)) * U;
-        // cout << "U\n"
-        //      << U << endl;
+        cout << "U\n"
+             << U << endl;
         u[i].rot.from_matrix(U);
     }
 }

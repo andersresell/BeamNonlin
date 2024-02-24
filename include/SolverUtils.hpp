@@ -21,8 +21,8 @@ struct Vec3Vec3
     Vec3Vec3() : trans{Vec3::Zero()}, rot{Vec3::Zero()} {}
     void set_zero()
     {
-        trans = {0, 0, 0};
-        rot = {0, 0, 0};
+        trans = Vec3::Zero();
+        rot = Vec3::Zero();
     }
     friend ostream &operator<<(ostream &os, const Vec3Vec3 &rhs)
     {

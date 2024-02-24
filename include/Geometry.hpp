@@ -42,13 +42,13 @@ public:
         return M_PI * (ro_e(ie) * ro_e(ie) - ri_e(ie) * ri_e(ie));
     }
 
-    // Scalar I_e(Index ie) const
-    // {
-    //     assert(ie < get_Ne());
-    //     Scalar Ro_e_ = Ro_e(ie);
-    //     Scalar Ri_e_ = Ri_e(ie);
-    //     return M_PI / 4 * (Ro_e_ * Ro_e_ * Ro_e_ * Ro_e_ - Ri_e_ * Ri_e_ * Ri_e_ * Ri_e_);
-    // }
+    Scalar I_e(Index ie) const
+    {
+        assert(ie < get_Ne());
+        Scalar Ro_e_ = ro_e(ie);
+        Scalar Ri_e_ = ri_e(ie);
+        return M_PI / 4 * (Ro_e_ * Ro_e_ * Ro_e_ * Ro_e_ - Ri_e_ * Ri_e_ * Ri_e_ * Ri_e_);
+    }
 
     // Scalar J_e(Index ie) const { return 2 * I_e(ie); }
 };

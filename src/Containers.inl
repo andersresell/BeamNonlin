@@ -26,7 +26,7 @@ inline void Quaternion::from_matrix(const Mat3 &R)
     Scalar R22 = R(1, 1);
     Scalar R33 = R(2, 2);
     Scalar R12 = R(0, 1);
-    Scalar R21 = R(0, 1);
+    Scalar R21 = R(1, 0);
     Scalar R23 = R(1, 2);
     Scalar R32 = R(2, 1);
     Scalar R13 = R(0, 2);

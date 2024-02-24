@@ -74,14 +74,29 @@ void solve(Config &config, const Geometry &geometry)
 
 void calc_dt(Config &config, const Geometry &geometry)
 {
+    Scalar c = sqrt(config.E / config.rho); /*Speed of sound*/
     Scalar dx_min = std::numeric_limits<Scalar>::max();
+    Scalar dt_min = std::numeric_limits<Scalar>::max();
     for (Index ie = 0; ie < geometry.get_Ne(); ie++)
     {
-        dx_min = min(dx_min, geometry.dx_e(ie));
+        Scalar dx = geometry.dx_e(ie);
+        Scalar I = geometry.I_e(ie);
+        Scalar A = geometry.A_e(ie);
+        Scalar r_g = sqrt(I / A); /*Radius of gyration*/
+
+        Scalar crit_1 = sqrt(3) * dx_min * dx_min / (12 * c * r_g);
+        Scalar crit_2 = dx / c;
+        dt_min = min(crit_1, crit_2);
+        dx_min = min(dx_min, dx);
+        /*Testing the stability crit from table 6.1 in Belytscho*/
     }
-    assert(dx_min > 0);                     // just a check
-    Scalar c = sqrt(config.E / config.rho); /*Speed of sound*/
-    Scalar CFL = config.CFL;
-    assert(CFL < 1 && CFL > 0);
-    config.dt = CFL * dx_min / c;
+    assert(dx_min > 0); // just a check
+    assert(config.CFL < 1 && config.CFL > 0);
+    config.dt = config.CFL * dt_min;
+    cout << "----------------------- Choosing dt ----------------------\n"
+         << "dt from table 6.1 Belytcho: " << dt_min << endl
+         << "dt from l_min/c: " << dx_min / c << endl
+         << "dt is chosen as CFL * dt_min, where CFL = " << config.CFL << endl
+         << "dt = " << config.dt << endl
+         << "----------------------------------------------------------\n";
 }
