@@ -149,39 +149,3 @@ void create_output_dir(Config &config)
         throw runtime_error{string("Failed to create output directory:" + output_dir + "\n")};
     }
 }
-
-Vec3Quat::Vec3Quat()
-{
-    static_assert(sizeof(Vec3Quat) == sizeof(Scalar) * 7);
-    trans = {0, 0, 0};
-    rot.from_matrix(Mat3::Identity());
-}
-
-ostream &operator<<(ostream &os, const Vec3Quat &rhs)
-{
-    return os << "{" << rhs.trans.transpose() << ",\n"
-              << rhs.rot.to_matrix() << "}";
-}
-
-void Vec3Quat::print_array(vector<Vec3Quat> arr, string label, bool print_trans, bool print_rot)
-{
-    if (label != "")
-        cout << label << ":" << endl;
-    if (print_trans)
-    {
-        cout << "trans:\n";
-        for (const auto &e : arr)
-        {
-            cout << e.trans.transpose() << ",\n";
-        }
-    }
-    if (print_rot)
-    {
-        cout << "\nrot:\n";
-        for (const auto &e : arr)
-        {
-            cout << "{" << e.rot.to_matrix() << "},\n";
-        }
-    }
-    cout << endl;
-}

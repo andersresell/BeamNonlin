@@ -14,6 +14,8 @@ struct Config
     string base_dir;
     string output_dir;
     BC_Case bc_case = BC_Case::NONE;
+    vector<PointLoad> R_point_static;
+
     bool gravity_enabled = true;
     Vec3 gravity_acc;
     Index n_threads;

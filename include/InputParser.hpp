@@ -16,6 +16,8 @@ public:
 
     void create_geometry(unique_ptr<Geometry> &geometry) const;
 
+    void parse_bcs_and_loads(const Geometry &geometry, Config &config) const;
+
 private:
     void parse_yaml_config_options(Config &config) const;
 
@@ -92,4 +94,6 @@ private:
             return default_value;
         }
     }
+
+    static PointLoad create_point_load(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Vec3> &X);
 };

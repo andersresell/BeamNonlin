@@ -58,7 +58,7 @@ void InputParser::parse_yaml_config_options(Config &config) const
     config.CFL = read_required_option<Scalar>(root_name_setup, "CFL");
     config.save_csv = read_optional_option<bool>(root_name_setup, "save_csv", true);
     config.n_write = read_optional_option<Index>(root_name_setup, "n_write", 1);
-    config.bc_case = read_required_enum_option<BC_Case>(root_name_setup, "bc_case", BC_case_from_string);
+
     config.gravity_enabled = read_required_option<bool>(root_name_setup, "gravity_enabled");
     if (config.gravity_enabled)
     {
@@ -107,9 +107,93 @@ void InputParser::parse_yaml_config_options(Config &config) const
     Index n_omp_threads = 1;
 }
 
+void InputParser::parse_bcs_and_loads(const Geometry &geometry, Config &config) const
+{
+    string root_name_bc = "bc";
+    string root_name_loads = "loads";
+    try
+    {
+        config.bc_case = read_required_enum_option<BC_Case>(root_name_bc, "case", bc_case_from_string);
+    }
+    catch (exception &e)
+    {
+        throw runtime_error("Error parsing boundary conditions:\n" + string(e.what()));
+    }
+
+    try
+    {
+        if (root_node[root_name_loads]["point_loads"])
+        {
+            YAML::Node point_loads = root_node[root_name_loads]["point_loads"];
+            vector<Scalar> R_point_tmp;
+            Scalar rel_loc;
+            for (const auto &point_load : point_loads)
+            {
+                if (point_load["R"] && point_load["rel_loc"])
+                {
+                    R_point_tmp = point_load["R"].as<vector<Scalar>>();
+                    if (R_point_tmp.size() != 6)
+                    {
+                        throw runtime_error("Wrong size for point load vector R, must be 6, but is " + to_string(R_point_tmp.size()));
+                    }
+                    rel_loc = point_load["rel_loc"].as<Scalar>();
+                    if (rel_loc < 0 || rel_loc > 1)
+                    {
+                        throw runtime_error("0 <= rel_loc <= 1 must be fulfilled, but rel_loc = " + to_string(rel_loc));
+                    }
+                    config.R_point_static.emplace_back(create_point_load(R_point_tmp, rel_loc, geometry.get_X()));
+                }
+                else
+                {
+                    throw runtime_error("Point load incorrectly specified\n");
+                }
+            }
+        }
+    }
+    catch (exception &e)
+    {
+        throw runtime_error("Error parsing loads:\n" + string(e.what()));
+    }
+}
+
 string InputParser::option_not_specified_msg(string root_name, string option_name) const
 {
     string msg = "\"" + option_name + "\" not specified in the input file \"" + input_filename + "\"\n";
     msg += "\"with base name " + root_name + "\"";
     return msg;
+}
+
+PointLoad InputParser::create_point_load(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Vec3> &X)
+{
+    assert(R_tmp.size() == 6);
+
+    PointLoad point_load;
+    point_load.load.trans = {R_tmp[0], R_tmp[1], R_tmp[2]};
+    point_load.load.rot = {R_tmp[3], R_tmp[4], R_tmp[5]};
+
+    /*Finding the nearest node index corresponding to the relative location*/
+
+    const Index N = X.size();
+    assert(N >= 2);
+    for (const auto &Xi : X)
+    {
+        assert(Xi.y() == 0 && Xi.z() == 0); // only straigt beams aligned along x axis allowed for now
+    }
+    Scalar L0 = (X[X.size() - 1] - X[0]).norm();
+    Scalar x = rel_loc * L0;
+    assert(x >= 0 && x <= L0);
+
+    for (Index i = 0; i < N; i++)
+    {
+        if (x <= X[i].x())
+        {
+            point_load.i = i;
+            break;
+        }
+        else if (i == N - 1)
+        {
+            assert(false);
+        }
+    }
+    return point_load;
 }

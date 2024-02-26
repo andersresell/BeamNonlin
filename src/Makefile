@@ -15,7 +15,7 @@ CXX_FLAGS = $(CXX_FLAGS_COMMON)
 ifeq ($(BUILD_TYPE), debug)
 	BUILD_DIR = $(BUILD_DIR_DEBUG)
 	CXX_FLAGS += -g
-	CXX_FLAGS += -D_GLIBCXX_DEBUG #_GLIBCXX_DEBUG enables range checking for [] operator for std vector
+	#CXX_FLAGS += -D_GLIBCXX_DEBUG #_GLIBCXX_DEBUG enables range checking for [] operator for std vector
 else ifeq ($(BUILD_TYPE), release)
 	BUILD_DIR = $(BUILD_DIR_RELEASE)
 	CXX_FLAGS +=  -DNDEBUG -O3 -march=native 
@@ -41,7 +41,8 @@ SRC = BeamNonlin.cpp \
 OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(SRC)) 
 
 # GLIBCXX_DEBUG doesn't work with yaml-cpp
-$(BUILD_DIR)/InputParser.o: CXX_FLAGS = $(CXX_FLAGS_COMMON) -g -O2
+#$(BUILD_DIR)/InputParser.o: CXX_FLAGS = $(CXX_FLAGS_COMMON) -g 
+
 
 
 all: prep $(EXE)

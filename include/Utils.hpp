@@ -1,5 +1,6 @@
 #pragma once
 #include "Includes.hpp"
+#include "Containers.hpp"
 #include <chrono>
 
 class Timer
@@ -25,7 +26,13 @@ enum class BC_Case
     SIMPLY_SUPPORTED
 };
 
-const map<string, BC_Case> BC_case_from_string{
+const map<string, BC_Case> bc_case_from_string{
     {"none", BC_Case::NONE},
     {"cantilever", BC_Case::CANTILEVER},
     {"simply_supported", BC_Case::SIMPLY_SUPPORTED}};
+
+struct PointLoad
+{
+    Vec3Vec3 load;
+    Index i;
+};

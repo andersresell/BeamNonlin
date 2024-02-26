@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
             InputParser input_parser{input_file};
             input_parser.parse_config(config);
             input_parser.create_geometry(geometry);
+            input_parser.parse_bcs_and_loads(*geometry, config);
         }
 
         omp_set_num_threads(config.n_threads);
