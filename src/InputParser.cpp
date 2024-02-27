@@ -141,7 +141,7 @@ void InputParser::parse_bcs_and_loads(const Geometry &geometry, Config &config) 
                     {
                         throw runtime_error("0 <= rel_loc <= 1 must be fulfilled, but rel_loc = " + to_string(rel_loc));
                     }
-                    config.R_point_static.emplace_back(create_point_load(R_point_tmp, rel_loc, geometry.get_X()));
+                    config.R_point_static.push_back(PointLoad{R_point_tmp, rel_loc, geometry.get_X()});
                 }
                 else
                 {
@@ -161,39 +161,4 @@ string InputParser::option_not_specified_msg(string root_name, string option_nam
     string msg = "\"" + option_name + "\" not specified in the input file \"" + input_filename + "\"\n";
     msg += "\"with base name " + root_name + "\"";
     return msg;
-}
-
-PointLoad InputParser::create_point_load(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Vec3> &X)
-{
-    assert(R_tmp.size() == 6);
-
-    PointLoad point_load;
-    point_load.load.trans = {R_tmp[0], R_tmp[1], R_tmp[2]};
-    point_load.load.rot = {R_tmp[3], R_tmp[4], R_tmp[5]};
-
-    /*Finding the nearest node index corresponding to the relative location*/
-
-    const Index N = X.size();
-    assert(N >= 2);
-    for (const auto &Xi : X)
-    {
-        assert(Xi.y() == 0 && Xi.z() == 0); // only straigt beams aligned along x axis allowed for now
-    }
-    Scalar L0 = (X[X.size() - 1] - X[0]).norm();
-    Scalar x = rel_loc * L0;
-    assert(x >= 0 && x <= L0);
-
-    for (Index i = 0; i < N; i++)
-    {
-        if (x <= X[i].x())
-        {
-            point_load.i = i;
-            break;
-        }
-        else if (i == N - 1)
-        {
-            assert(false);
-        }
-    }
-    return point_load;
 }

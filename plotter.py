@@ -108,21 +108,27 @@ class Plotter:
         
         disp = []
         for n in range(self.n_steps):
+  
             if n % self.n_write != 0: continue
             self.read_header_transient(n)
             times.append(self.t)
             
             data = self.read_data(n)
-            
             u = data[:,3:6]
+            v =data[:,15:18]
+            omega_u = data[:,18:21]
             
-            disp.append(u[-1][0])
+            #disp.append(omega_u[-1][2])
+            #disp.append(u[-1][0])
+            disp.append(v[-1][2])
+            
         plt.figure()
         times = np.array(times)
         disp = np.array(disp)
         plt.plot(times,disp)
         plt.xlabel("t")
-        plt.ylabel("u")
+        plt.xlim([0,5])
+        plt.ylim([-5,10])
         
     def animate_vertical_disp(self):
         plt.figure()

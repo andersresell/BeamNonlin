@@ -293,7 +293,7 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     const Index N = geometry.get_N();
     const Index Ne = N - 1;
 
-    const vector<Vec3> X = geometry.get_X();
+    const vector<Vec3> &X = geometry.get_X();
     const Scalar E = config.E;
     const Scalar G = config.get_G();
 
@@ -303,29 +303,6 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     {
         beam_system.R[i].set_zero();
     }
-
-    // simple 'coloring scheme' to avoid race condition
-    Index bin_size = Ne / omp_get_num_threads();
-
-    // This is faster! ensure that it works
-    // #pragma omp parallel for
-    //     for (Index ie = 0; ie < Ne; ie++)
-    //     {
-    //         Index r = omp_get_thread_num();
-    //         Index a = r * bin_size;
-    //         Index b = (r + 1) * bin_size;
-    //         if (r % 2 == 0 && ie >= a && ie < b)
-    //             calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-    //     }
-    // #pragma omp parallel for
-    //     for (Index ie = 0; ie < Ne; ie++)
-    //     {
-    //         Index r = omp_get_thread_num();
-    //         Index a = r * bin_size;
-    //         Index b = (r + 1) * bin_size;
-    //         if (r % 2 == 1 && ie >= a && ie < b)
-    //             calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-    //     }
 
 #pragma omp parallel for
     for (Index ie = 0; ie < Ne; ie++)
@@ -348,10 +325,62 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     // {
     //     calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
     // }
+
+    /*--------------------------------------------------------------------
+    To avoid race conditions the following pattern is used to compute and
+    assemble the internal forces:
+
+    Example shows a problem of 2 threads and 12 elements.
+
+    first loop:
+     e0,  e1,  e2,  e3,  e4,  e5,  e6,  e7,  e8,  e9, e10, e11
+    [r0,  r0,  r0,  --,  --,  --,  r1,  r1,  r1,  --,  --, -- ]
+
+    second loop
+     e0,  e1,  e2,  e3,  e4,  e5,  e6,  e7,  e8,  e9, e10, e11
+    [--,  --,  --,  r0,  r0,  r0,  --,  --,  --,  r1,  r1,  r1 ]
+
+    ensuring that the memory region worked on by each thread is compact
+    and, but that no two threads can update the same nodal force at the
+    same time.
+    --------------------------------------------------------------------*/
+    // #pragma omp parallel
+    //     {
+    //         Index num_threads = omp_get_num_threads();
+    //         Index bin_size = ceil((Scalar)Ne / (2 * num_threads));
+    //         // cout << "bin sz " << bin_size << endl;
+    //         assert(2 * bin_size * num_threads >= Ne);
+    //         Index r = omp_get_thread_num();
+    //         Index a = 2 * r * bin_size;
+    //         assert(a < Ne);
+    //         Index b = min(a + bin_size, Ne);
+    //         // printf("first a %i,b %i\n", a, b);
+
+    //         for (Index ie = a; ie < b; ie++)
+    //         {
+    //             calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+    //         }
+    //     }
+    // #pragma omp parallel
+    //     {
+    //         Index num_threads = omp_get_num_threads();
+    //         Index bin_size = ceil((Scalar)Ne / (2 * num_threads));
+    //         assert(2 * bin_size * num_threads >= Ne);
+    //         Index r = omp_get_thread_num();
+    //         Index a = (2 * r + 1) * bin_size;
+    //         assert(a < Ne);
+    //         Index b = min(a + bin_size, Ne);
+    //         // printf("second a %i,b %i\n", a, b);
+
+    //         for (Index ie = a; ie < b; ie++)
+    //         {
+    //             calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+    //         }
+    //     }
 }
 
 inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3Vec3> &v, vector<Scalar> M_inv,
-                                     const vector<Vec3> &J_u, const vector<Vec3Vec3> &R, const vector<Vec3Vec3> &R_static)
+                                     const vector<Vec3> &J_u, vector<Vec3Vec3> &R, const vector<Vec3Vec3> &R_static)
 {
 
     // print_std_vector(R, "R");
@@ -405,9 +434,17 @@ inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3
         Hughes Winges: (Computing inverse or direct solver?)*/
         U = (Mat3::Identity() - 0.5 * dt * skew_symmetric(omega_u)).inverse() *
             (Mat3::Identity() + 0.5 * dt * skew_symmetric(omega_u)) * U;
-        // cout << "U\n"
-        //      << U << endl;
+
+        // U = (Mat3::Identity() + dt * skew_symmetric(omega_u));
+        //  if (i == N - 1)
+        //  {
+        //      cout << "omega_u " << omega_u.transpose() << endl;
+        //  }
+        //  cout << "U\n"
+        //       << U << endl;
         u[i].rot.from_matrix(U);
+
+        // R[i].set_zero(); /*Setting the load vector to zero so it's ready for assembly in the next timestep*/
     }
 }
 

@@ -48,6 +48,7 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
         Scalar Je22;
         // Je22 = rho * M_PI * dx / 12 * (3 * (pow(ro, 4) - pow(ri, 4)) + dx * dx * (ro * ro - ri * ri));
         Je22 = 1.0 / 12 * m * dx * dx; // Moment of inertia of thin rod. Using this instead of the exact moment of inertia as Belytscho does
+        // Je22 *= 1;
         Scalar Je33 = Je22;
 
         // Not the exact same procedure as proposed in Crisfield.
@@ -97,30 +98,31 @@ void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &
         << N << "," << n_steps << "," << n_w << "," << t << "," << dt << "\n"
         << "\n";
     /*Write solution*/
-    // ost << "X1, X2, X3, u1, u2, u3, U11, U12, U13, U21, U22, U23, U31, U32, U33\n";
     Index w = 12;
     ost << setw(w) << "#X1," << setw(w) << "X2," << setw(w) << "X3,"
         << setw(w) << "u1," << setw(w) << "u2," << setw(w) << "u3,"
         << setw(w) << "U11," << setw(w) << "U12," << setw(w) << "U13,"
         << setw(w) << "U21," << setw(w) << "U22," << setw(w) << "U23,"
         << setw(w) << "U31," << setw(w) << "U32," << setw(w) << "U33 "
+        << setw(w) << "v1," << setw(w) << "v2," << setw(w) << "v3,"
+        << setw(w) << "omega_u_1," << setw(w) << "omega_u_2," << setw(w) << "omega_u_3"
         << "\n";
     w -= 1;
     for (Index i = 0; i < N; i++)
     {
         const Vec3 &X = geometry.get_X()[i];
         const Vec3 &u = beam_system.u[i].trans;
-        const Mat3 U = beam_system.u[i].rot.to_matrix();
-        // ost << X.x() << "," << X.y() << "," << X.z() << "," << u.x() << "," << u.y() << "," << u.z() << ","
-        //     << U(0, 0) << "," << U(0, 1) << "," << U(0, 2) << ","
-        //     << U(1, 0) << "," << U(1, 1) << "," << U(1, 2) << ","
-        //     << U(2, 0) << "," << U(2, 1) << "," << U(2, 2) << "\n";
+        const Mat3 &U = beam_system.u[i].rot.to_matrix();
+        const Vec3 &v = beam_system.v[i].trans;
+        const Vec3 &omega_u = beam_system.v[i].rot;
 
         ost << setw(w) << X.x() << "," << setw(w) << X.y() << "," << setw(w) << X.z() << ","
             << setw(w) << u.x() << "," << setw(w) << u.y() << "," << setw(w) << u.z() << ","
             << setw(w) << U(0, 0) << "," << setw(w) << U(0, 1) << "," << setw(w) << U(0, 2) << ","
             << setw(w) << U(1, 0) << "," << setw(w) << U(1, 1) << "," << setw(w) << U(1, 2) << ","
-            << setw(w) << U(2, 0) << "," << setw(w) << U(2, 1) << "," << setw(w) << U(2, 2) << "\n";
+            << setw(w) << U(2, 0) << "," << setw(w) << U(2, 1) << "," << setw(w) << U(2, 2) << ","
+            << setw(w) << v.x() << "," << setw(w) << u.y() << "," << setw(w) << u.z() << ","
+            << setw(w) << omega_u.x() << "," << setw(w) << omega_u.y() << "," << setw(w) << omega_u.z() << "\n";
     }
 }
 

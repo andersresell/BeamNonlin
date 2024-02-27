@@ -1,23 +1,23 @@
 setup:
-  CFL: 0.9
-  n_max: 500000
+  CFL: 0.8
+  n_max: 1000000
   t_max: 10
-  n_write: 10
-  n_threads: 4
+  n_write: 100
+  n_threads: 8
   save_csv : true
-  gravity_enabled: true
-  gravity_acc: [0, 0, 0]
+  gravity_enabled: false
+  #gravity_acc: [0, 0, 0]
 
 bc: 
   case: "cantilever"
   
 loads: 
   point_loads:
-  - R: [0, 0, 1000, 10000, 0, 0]
+  - R: [0, 1000,1000, 0, 0, 0]
     rel_loc: 1
-  # - R: [0, 0, 0, 0, 0, 10]
+  # - R: [0, 0, 10, 0, 0, 0]
   #   rel_loc: 0.5
-
+    
 
 properties:
   E: 200.0e+09

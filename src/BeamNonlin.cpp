@@ -5,44 +5,69 @@
 inline void test_quat()
 {
     cout << "test quat\n";
-    Scalar thetaz = 15 * M_PI / 180;
-    Scalar thetay = 5 * M_PI / 180;
+    // Scalar thetaz = 15 * M_PI / 180;
+    // Scalar thetay = 5 * M_PI / 180;
+    // Scalar thetax;
 
-    Scalar c = cos(thetaz);
-    Scalar s = sin(thetaz);
+    // Scalar c = cos(thetaz);
+    // Scalar s = sin(thetaz);
 
-    Mat3 Rz, Ry;
-    Rz << c, -s, 0,
-        s, c, 0,
-        0, 0, 1;
-    c = cos(thetay);
-    s = sin(thetay);
-    Ry << c, 0, -s,
-        0, 1, 0,
-        s, 0, c;
-    Ry = Mat3::Identity();
+    // Mat3 Rx, Ry, Rz;
+    // Rz << c, -s, 0,
+    //     s, c, 0,
+    //     0, 0, 1;
+    // c = cos(thetay);
+    // s = sin(thetay);
+    // Ry << c, 0, -s,
+    //     0, 1, 0,
+    //     s, 0, c;
 
-    Mat3 U = Rz * Ry;
+    // // Ry = Mat3::Identity();
 
-    assert(is_orthogonal(U));
+    // Mat3 U = Rz * Ry;
 
-    cout << "U before \n"
-         << U << endl;
-    Quaternion q;
-    cout << "q first \n"
-         << q << endl;
-    q.from_matrix(U);
+    // assert(is_orthogonal(U));
 
-    cout << "q second \n"
-         << q << endl;
-    cout << "q norm " << q.norm() << endl;
-    U = q.to_matrix();
+    // // cout << "U before \n"
+    // //      << U << endl;
+    // Quaternion q;
+    // // cout << "q first \n"
+    // //      << q << endl;
+    // q.from_matrix(U);
 
-    cout << "q third \n"
-         << q << endl;
+    // // cout << "q second \n"
+    // //      << q << endl;
+    // // cout << "q norm " << q.norm() << endl;
+    // U = q.to_matrix();
 
-    cout << "U after \n"
-         << U << endl;
+    // cout << "q third \n"
+    //      << q << endl;
+
+    // cout << "U after \n"
+    //      << U << endl;
+    Index n_tests = 100;
+    for (Index i = 0; i < n_tests; i++)
+    {
+        Vec3 Theta = Vec3::Random() * 10;
+        cout << "Theta " << Theta << endl;
+        Vec3 e = Theta.normalized();
+        Scalar theta = Theta.norm();
+        Mat3 R = Mat3::Identity() + sin(theta) * skew_symmetric(e) + (1 - cos(theta)) * skew_symmetric(e) * skew_symmetric(e);
+        assert(is_orthogonal(R));
+
+        Quaternion q;
+        q.from_matrix(R);
+        Mat3 U = q.to_matrix();
+
+        if ((U - R).norm() > SMALL_SCALAR)
+        {
+            cout << "Fail\n";
+            cout << "U\n"
+                 << U << endl;
+            cout << "R\n"
+                 << R << endl;
+        }
+    }
 
     exit(0);
 }

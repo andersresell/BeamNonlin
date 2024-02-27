@@ -94,6 +94,4 @@ private:
             return default_value;
         }
     }
-
-    static PointLoad create_point_load(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Vec3> &X);
 };

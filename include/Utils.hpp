@@ -35,4 +35,5 @@ struct PointLoad
 {
     Vec3Vec3 load;
     Index i;
+    PointLoad(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Vec3> &X);
 };
