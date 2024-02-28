@@ -15,6 +15,7 @@ struct Config
     string output_dir;
     BC_Case bc_case = BC_Case::NONE;
     vector<PointLoad> R_point_static;
+    bool check_energy_balance;
 
     bool gravity_enabled = true;
     Vec3 gravity_acc;

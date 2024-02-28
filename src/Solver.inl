@@ -1,8 +1,8 @@
 #pragma once
 #include "../include/Solver.hpp"
 
-inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Vec3Quat> &d,
-                                      vector<Vec3Vec3> &R, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
+inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3Quat *__restrict__ d,
+                                      Vec3Vec3 *__restrict__ R, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
 {
 
     // if (n_glob == 2)
@@ -10,7 +10,7 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     //     int a = 1;
     // }
 
-    assert(ie < X.size() - 1);
+    // assert(ie < X.size() - 1);
     const Vec3 &X1 = X[ie];
     const Vec3 &X2 = X[ie + 1];
     const Vec3 &d1 = d[ie].trans;
@@ -310,7 +310,7 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     {
         if (ie % 2 == 0)
         {
-            calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+            calc_element_inner_forces(ie, X.data(), beam_system.u.data(), beam_system.R.data(), geometry.ri_e(ie), geometry.ro_e(ie), E, G);
         }
     }
 #pragma omp parallel for
@@ -319,7 +319,7 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
 
         if (ie % 2 == 1)
         {
-            calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+            calc_element_inner_forces(ie, X.data(), beam_system.u.data(), beam_system.R.data(), geometry.ri_e(ie), geometry.ro_e(ie), E, G);
         }
     }
     // for (Index ie = 0; ie < Ne; ie++)
@@ -442,13 +442,17 @@ inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3
         assert(U.allFinite());
 
         /*Quaternion compound rotation*/
-        const Vec3 omega = U * omega_u;
-        const Vec3 Delta_Theta_pseudo = dt * omega;
-        const Scalar Delta_Theta_val = Delta_Theta_pseudo.norm();
-        Quaternion delta_q;
-        delta_q.q0 = cos(Delta_Theta_pseudo);
-        delta_q.q1 =
-            quat = quat;
+        // const Vec3 omega = U * omega_u;
+        // const Vec3 Delta_Theta_pseudo = dt * omega;
+        // const Scalar Delta_Theta_val = Delta_Theta_pseudo.norm();
+        // Quaternion delta_q;
+        // delta_q.q0 = cos(Delta_Theta_pseudo);
+        // delta_q.q1 =
+        //     quat = quat;
+
+        // Eigen::Quaternion<Scalar> qu{U};
+        // Vec3 a;
+        // Vec3 b = qu*a;
 
         // U = U * (Mat3::Identity() + dt * skew_symmetric(omega_u));
         //   if (i == N - 1)

@@ -49,15 +49,12 @@ void InputParser::parse_yaml_config_options(Config &config) const
     string root_name_setup = "setup";
     string root_name_properties = "properties";
 
-    /*-------------------------------------------------
-    ------------------Solver settings------------------
-    -------------------------------------------------*/
-
     config.n_max = read_required_option<size_t>(root_name_setup, "n_max");
     config.t_max = read_required_option<size_t>(root_name_setup, "t_max");
     config.CFL = read_required_option<Scalar>(root_name_setup, "CFL");
     config.save_csv = read_optional_option<bool>(root_name_setup, "save_csv", true);
     config.n_write = read_optional_option<Index>(root_name_setup, "n_write", 1);
+    config.check_energy_balance = read_optional_option<bool>(root_name_setup, "check_energy_balance", false);
 
     config.gravity_enabled = read_required_option<bool>(root_name_setup, "gravity_enabled");
     if (config.gravity_enabled)
