@@ -179,6 +179,7 @@ inline void calc_element_inner_forces(Index ie, const vector<Vec3> &X, vector<Ve
     //      << R_int_l << endl;
 
     const Vec12 R_int = F_transpose * R_int_l;
+    assert(R_int.allFinite());
     // cout << "R_int:\n"
     //      << R_int << endl;
 
@@ -235,7 +236,7 @@ inline Vec7 calc_nodal_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, S
     // cout << "fix\n";
     // //Vec12 R_int_l = {0, 0, 0, 0, M2, M3, 0, 0, 0, 0, M5, M6};
     // Vec12 R_int_l = {0, 0, 0, 0, M2, M3, 0, 0, 0, 0, M5, M6};
-
+    assert(R_int_l.allFinite());
     return R_int_l;
 }
 
@@ -400,6 +401,8 @@ inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3
         //     continue;
         const Vec3 R_trans = R_static[i].trans + R[i].trans;
         const Vec3 R_rot = R_static[i].rot + R[i].rot;
+        assert(R_trans.allFinite());
+        assert(R_rot.allFinite());
 
         /*--------------------------------------------------------------------
         Translations
@@ -411,9 +414,9 @@ inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3
         /*--------------------------------------------------------------------
         Rotations
         --------------------------------------------------------------------*/
-        Quaternion &quat = u[i].rot;
+        Quaternion &q = u[i].rot;
         // Optimize this! use Quaternion product directly instead to rotate
-        Mat3 U = quat.to_matrix();
+        Mat3 U = q.to_matrix();
         // cout << "U prior\n"
         //      << U << endl;
         const Vec3 R_rot_u = U.transpose() * R_rot; /*Transform nodal force to node frame*/
@@ -431,17 +434,29 @@ inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3
         I could also consider using the Quaternion diff eqn to do it, and normalize it,
         would probably be better/faster
 
-        Hughes Winges: (Computing inverse or direct solver?)*/
-        U = (Mat3::Identity() - 0.5 * dt * skew_symmetric(omega_u)).inverse() *
-            (Mat3::Identity() + 0.5 * dt * skew_symmetric(omega_u)) * U;
+        Hughes Winges: (Computing inverse or direct solver?) note that thus differs
+        from the equation in the hopperstad lecture notes since here omega_u is
+        used instead of omega*/
+        U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(omega_u)).inverse() *
+            (Mat3::Identity() + 0.5 * dt * skew_symmetric(omega_u));
+        assert(U.allFinite());
 
-        // U = (Mat3::Identity() + dt * skew_symmetric(omega_u));
-        //  if (i == N - 1)
-        //  {
-        //      cout << "omega_u " << omega_u.transpose() << endl;
-        //  }
-        //  cout << "U\n"
-        //       << U << endl;
+        /*Quaternion compound rotation*/
+        const Vec3 omega = U * omega_u;
+        const Vec3 Delta_Theta_pseudo = dt * omega;
+        const Scalar Delta_Theta_val = Delta_Theta_pseudo.norm();
+        Quaternion delta_q;
+        delta_q.q0 = cos(Delta_Theta_pseudo);
+        delta_q.q1 =
+            quat = quat;
+
+        // U = U * (Mat3::Identity() + dt * skew_symmetric(omega_u));
+        //   if (i == N - 1)
+        //   {
+        //       cout << "omega_u " << omega_u.transpose() << endl;
+        //   }
+        //   cout << "U\n"
+        //        << U << endl;
         u[i].rot.from_matrix(U);
 
         // R[i].set_zero(); /*Setting the load vector to zero so it's ready for assembly in the next timestep*/

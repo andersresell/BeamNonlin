@@ -119,7 +119,7 @@ class Plotter:
             omega_u = data[:,18:21]
             
             #disp.append(omega_u[-1][2])
-            #disp.append(u[-1][0])
+            #disp.append(u[-1][2])
             disp.append(v[-1][2])
             
         plt.figure()
@@ -127,7 +127,7 @@ class Plotter:
         disp = np.array(disp)
         plt.plot(times,disp)
         plt.xlabel("t")
-        plt.xlim([0,5])
+        #plt.xlim([0,5])
         plt.ylim([-5,10])
         
     def animate_vertical_disp(self):
