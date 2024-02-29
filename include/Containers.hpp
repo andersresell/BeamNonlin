@@ -3,16 +3,28 @@
 
 struct Quaternion
 {
-    Scalar q0, q1, q2, q3;
+    Scalar q0;
+    Vec3 q;
 
     Mat3 to_matrix() const;
     void from_matrix(const Mat3 &R);
     Scalar norm() const;
     Scalar norm_sqr() const;
     void normalize();
+    Quaternion() : q0{0}, q{Vec3::Zero()} {}
+    /*Create from pseudo vector*/
+    Quaternion(const Vec3 &Theta);
+
+    Quaternion product(const Quaternion &a) const;
+    /*Compound rotates the existing quaternion by the pseudo vector Theta */
+    void compound_rotate(const Vec3 &Theta);
+
+    /*Performs the operation vn = R(q)*v0*/
+    Vec3 rotate_vector(const Vec3 &v0) const;
+
     friend ostream &operator<<(ostream &os, const Quaternion &rhs)
     {
-        return os << "q0=" << rhs.q0 << "\nq1=" << rhs.q1 << "\nq2=" << rhs.q2 << "\nq3=" << rhs.q3 << endl;
+        return os << "q0=" << rhs.q0 << "\nq1=" << rhs.q.x() << "\nq2=" << rhs.q.y() << "\nq3=" << rhs.q.z() << endl;
     }
 };
 

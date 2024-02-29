@@ -28,10 +28,10 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
                                       Vec3Vec3 *__restrict__ R_int, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
 {
 
-    if (n_glob == 2)
-    {
-        int a = 1;
-    }
+    // if (n_glob == 2)
+    // {
+    //     int a = 1;
+    // }
 
     // assert(i&e < X.size() - 1);
     const Vec3 &X1 = X[ie];
@@ -77,7 +77,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Mat3 DeltaR = U * T.transpose();
     Quaternion qDeltaR;
     qDeltaR.from_matrix(DeltaR);
-    const Vec3 gamma_half = Vec3{qDeltaR.q1, qDeltaR.q2, qDeltaR.q3} / qDeltaR.q0; // eq 16.34 divided by 2
+    const Vec3 gamma_half = qDeltaR.q / qDeltaR.q0; // eq 16.34 divided by 2
     const Mat3 S = skew_symmetric(gamma_half);
     const Mat3 DeltaR_m = Mat3::Identity() + 1 / (1 + 0.25 * gamma_half.dot(gamma_half)) * (S + 0.5 * S * S);
     const Mat3 R_ = DeltaR_m * T;
@@ -561,7 +561,7 @@ inline void set_simple_bc(BC_Case bc_case, const Geometry &geometry, BeamSystem 
     case BC_Case::SIMPLY_SUPPORTED:
         d_trans[0] = {0, 0, 0};
         v[0].trans = {0, 0, 0};
-        d_rot[N - 1] = {0, 0, 0};
+        d_trans[N - 1] = {0, 0, 0};
         v[N - 1].trans = {0, 0, 0};
         break;
     default:

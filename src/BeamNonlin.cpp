@@ -69,12 +69,45 @@ inline void test_quat()
         }
     }
 
+    cout << "second test\n";
+
+    for (Index i = 0; i < n_tests; i++)
+    {
+        Vec3 Theta = Vec3::Random() * 10;
+        Vec3 v0 = Vec3::Random() * 100;
+        cout << "Theta " << Theta << endl;
+
+        Quaternion q{Theta};
+        Vec3 vnq = q.rotate_vector(v0);
+        const Mat3 R = q.to_matrix();
+        Vec3 vnr = R * v0;
+        if ((vnq - vnr).norm() > SMALL_SCALAR)
+        {
+            cout << "vector rotation failed\n";
+            cout << "vnq " << vnq << endl
+                 << "vnr " << vnr << endl;
+        }
+
+        Vec3 dTheta = Vec3::Random();
+        Quaternion dq{dTheta};
+        Mat3 dR = dq.to_matrix();
+
+        q.compound_rotate(dTheta);
+        Mat3 R_n_q = q.to_matrix();
+        Mat3 R_n = dR * R;
+
+        if ((R_n_q - R_n).norm() > SMALL_SCALAR)
+        {
+            cout << "compoundd rotation failed\n";
+        }
+    }
+
     exit(0);
 }
 
 int main(int argc, char *argv[])
 {
-    // test_quat();
+    test_quat();
 
     try
     {
