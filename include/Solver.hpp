@@ -136,6 +136,22 @@ inline void step_explicit(Config &config, const Geometry &geometry, BeamSystem &
         assert(delta_d.size() == 0);
     }
 
+    // Index i = 500;
+    // // cout << "R_ext " << R_ext[i] << endl;
+    // // cout << "R_int " << R_int[i] << endl;
+    // // cout << "d_trans " << d_trans[i] << endl;
+    // // cout << "d_rot \n"
+    // //      << d_rot[i].to_matrix() << endl;
+    // Mat3 U = d_rot[i].to_matrix();
+    // Vec3 u2 = U.col(1);
+    // bool is_correct = u2.isApprox(Vec3{0, 1, 0});
+    // assert(is_correct);
+    // if (!is_correct)
+    // {
+    //     cout << "not correct\n";
+    //     exit(1);
+    // }
+
     /*velocity at t_{n+1/2}*/
     velocity_update_partial(dt, N, M.data(), J_u.data(), R_int.data(), R_ext.data(), v.data());
 

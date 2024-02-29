@@ -42,7 +42,7 @@ class Plotter:
         self.n_steps = int(header[1])
         self.n_write = int(header[2])
         self.n_plot_triad = max(int(self.N/MAX_TRIADS),1)
-        self.check_energy_balance = bool(header[4])
+        self.check_energy_balance = bool(int(header[5]))
         self.write_gif=write_gif
         if write_gif:
             self.output_tmp = "output_tmp"

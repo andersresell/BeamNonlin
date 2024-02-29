@@ -33,7 +33,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
         int a = 1;
     }
 
-    // assert(ie < X.size() - 1);
+    // assert(i&e < X.size() - 1);
     const Vec3 &X1 = X[ie];
     const Vec3 &X2 = X[ie + 1];
     const Vec3 &d1 = d_trans[ie];
@@ -43,14 +43,14 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     // cout << "d2 " << d2.transpose() << endl;
 
     const Mat3 T = d_rot[ie].to_matrix();
-    const Vec3 t1 = T.col(0);
-    const Vec3 t2 = T.col(1);
-    const Vec3 t3 = T.col(2);
+    const Vec3 &t1 = T.col(0);
+    const Vec3 &t2 = T.col(1);
+    const Vec3 &t3 = T.col(2);
 
     const Mat3 U = d_rot[ie + 1].to_matrix();
-    const Vec3 u1 = U.col(0);
-    const Vec3 u2 = U.col(1);
-    const Vec3 u3 = U.col(2);
+    const Vec3 &u1 = U.col(0);
+    const Vec3 &u2 = U.col(1);
+    const Vec3 &u3 = U.col(2);
 
     // cout << "U from quat\n"
     //      << U << endl;
@@ -81,9 +81,9 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Mat3 S = skew_symmetric(gamma_half);
     const Mat3 DeltaR_m = Mat3::Identity() + 1 / (1 + 0.25 * gamma_half.dot(gamma_half)) * (S + 0.5 * S * S);
     const Mat3 R_ = DeltaR_m * T;
-    const Vec3 r1 = R_.col(0);
-    const Vec3 r2 = R_.col(1);
-    const Vec3 r3 = R_.col(2);
+    const Vec3 &r1 = R_.col(0);
+    const Vec3 &r2 = R_.col(1);
+    const Vec3 &r3 = R_.col(2);
     // cout << "R_\n"
     //      << R_ << endl;
 
@@ -197,8 +197,8 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     //      << F.transpose() << endl;
 
     /*Calculate local internal forces based on linear 3D beam theory*/
-    Vec7 R_int_e_l = calc_nodal_forces_local(ri_e, ro_e, l0, E, G, ul,
-                                             theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
+    const Vec7 R_int_e_l = calc_nodal_forces_local(ri_e, ro_e, l0, E, G, ul,
+                                                   theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
 
     // cout << "R_int_l:\n"
     //      << R_int_l << endl;

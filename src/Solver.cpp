@@ -36,6 +36,8 @@ void solve(Config &config, const Geometry &geometry)
                    "n = %i, t = %.5f"
                    "\n---------------------------------\n",
                    n, config.t);
+
+            check_energy_balance(config, beam_sys);
         }
 
         // save output
@@ -62,8 +64,6 @@ void solve(Config &config, const Geometry &geometry)
         //     beam_system.u[1].rot.from_matrix(U);
         // }
         step_explicit(config, geometry, beam_sys);
-
-        check_energy_balance(config, beam_sys);
 
         // calculate internal loads
         // assemble(config, geometry, beam_system);
