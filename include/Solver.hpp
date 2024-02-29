@@ -56,11 +56,25 @@ inline void displacement_update(Scalar dt, Index N, Vec3Vec3 *__restrict__ v, Ve
     for (Index i = 0; i < N; i++)
     {
         d_trans[i] += dt * v[i].trans;
-        Mat3 U = d_rot[i].to_matrix();
-        U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(v[i].rot)).inverse() *
-            (Mat3::Identity() + 0.5 * dt * skew_symmetric(v[i].rot));
-        assert(U.allFinite());
-        d_rot[i].from_matrix(U);
+        // Mat3 U = d_rot[i].to_matrix();
+        // U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(v[i].rot)).inverse() *
+        //     (Mat3::Identity() + 0.5 * dt * skew_symmetric(v[i].rot));
+        // assert(U.allFinite());
+        // d_rot[i].from_matrix(U);
+
+        Quaternion &q = d_rot[i];
+        const Vec3 &omega_u = v[i].rot;
+        const Vec3 omega = q.rotate_vector(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
+        q.compound_rotate(dt * omega);
+
+        //      Mat3 Uq = q.to_matrix();
+
+        //     cout << "U\n"
+        //          << U << endl;
+        //     cout << "Uq\n"
+        //          << Uq << endl;
+
+        //     int a = 1;
     }
 }
 
@@ -105,9 +119,12 @@ inline void rotate_R_rot_to_body_frame(Index N, const Quaternion *__restrict__ d
 {
     for (Index i = 0; i < N; i++)
     {
-        Mat3 U = d_rot[i].to_matrix();
-        R_int[i].rot = U.transpose() * R_int[i].rot;
-        R_ext[i].rot = U.transpose() * R_ext[i].rot;
+        //     Mat3 U = d_rot[i].to_matrix();
+        //     R_int[i].rot = U.transpose() * R_int[i].rot;
+        //     R_ext[i].rot = U.transpose() * R_ext[i].rot;
+        const Quaternion &q = d_rot[i];
+        R_int[i].rot = q.rotate_vector_reversed(R_int[i].rot);
+        R_ext[i].rot = q.rotate_vector_reversed(R_ext[i].rot);
     }
 }
 

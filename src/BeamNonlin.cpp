@@ -128,7 +128,7 @@ inline void test_quat()
 
 int main(int argc, char *argv[])
 {
-    test_quat();
+    // test_quat();
 
     try
     {

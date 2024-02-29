@@ -63,7 +63,7 @@ inline void Quaternion::from_matrix(const Mat3 &R)
         q2 = 0.25 * (R23 + R32) / q3;
     }
     assert(is_close(norm(), 1.0));
-    this->normalize(); // perhaps not necessary
+    // this->normalize(); // perhaps not necessary
 }
 
 inline Scalar Quaternion::norm() const
@@ -88,7 +88,7 @@ inline Quaternion::Quaternion(const Vec3 &Theta)
 {
     Scalar theta = Theta.norm();
     q0 = cos(theta / 2);
-    q = sin(theta / 2) * Theta / theta;
+    q = sin(theta / 2) * Theta.normalized();
     assert(is_close(this->norm_sqr(), 1));
 }
 
