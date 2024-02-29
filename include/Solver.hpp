@@ -36,10 +36,14 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
                                     const Vec3Vec3 *__restrict__ R_ext,
                                     Vec3Vec3 *__restrict__ v)
 {
-#pragma omp parallel for
+#pragma omp parallel for // simd
     for (Index i = 0; i < N; i++)
     {
-        v[i].trans += 0.5 * dt * (R_ext[i].trans - R_int[i].trans) / M[i];
+        // rayleigh
+        Vec3 R_damp = 30 * M[i] * v[i].trans; // REMOVE THIS!
+        v[i].trans += 0.5 * dt * (R_ext[i].trans - R_int[i].trans - R_damp) / M[i];
+
+        // v[i].trans += 0.5 * dt * (R_ext[i].trans - R_int[i].trans ) / M[i];
 
         /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
         const Vec3 R_rot_u = R_ext[i].rot - R_int[i].rot;
@@ -52,7 +56,7 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
 inline void displacement_update(Scalar dt, Index N, Vec3Vec3 *__restrict__ v, Vec3 *__restrict__ d_trans,
                                 Quaternion *__restrict__ d_rot)
 {
-#pragma omp parallel for
+#pragma omp parallel for // simd
     for (Index i = 0; i < N; i++)
     {
         d_trans[i] += dt * v[i].trans;
@@ -80,7 +84,7 @@ inline void displacement_update(Scalar dt, Index N, Vec3Vec3 *__restrict__ v, Ve
 
 inline void calc_delta_d(Scalar dt, Index N, Vec3Vec3 *__restrict__ delta_d, const Vec3Vec3 *__restrict__ v)
 {
-#pragma omp parallel for
+#pragma omp parallel for // simd
     for (Index i = 0; i < N; i++)
     {
         delta_d[i].trans = dt * v[i].trans;
@@ -117,6 +121,7 @@ inline void update_kinetic_energy(Index N, const Scalar *__restrict__ M, const V
 inline void rotate_R_rot_to_body_frame(Index N, const Quaternion *__restrict__ d_rot,
                                        Vec3Vec3 *__restrict__ R_int, Vec3Vec3 *__restrict__ R_ext)
 {
+#pragma omp parallel for
     for (Index i = 0; i < N; i++)
     {
         //     Mat3 U = d_rot[i].to_matrix();
