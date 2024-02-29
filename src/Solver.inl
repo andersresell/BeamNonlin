@@ -1,29 +1,53 @@
 #pragma once
 #include "../include/Solver.hpp"
 
-inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3Quat *__restrict__ d,
-                                      Vec3Vec3 *__restrict__ R, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
+inline void check_energy_balance(const Config &config, const BeamSystem &beam_sys)
+{
+    if (!config.check_energy_balance)
+    {
+        return;
+    }
+    const Scalar KE = beam_sys.KE;
+    const Scalar W_int = beam_sys.W_int;
+    const Scalar W_ext = beam_sys.W_ext;
+    const Scalar tol = config.energy_balance_tol;
+    const Scalar E_residal = KE + W_int - W_ext;
+
+    if (abs(E_residal) > tol * max(KE, max(W_int, W_ext)))
+    {
+        printf("Warning: Energy balance is not obeyed, energy residual = %f\n", E_residal);
+    }
+    else if (isnan(E_residal))
+    {
+        printf("Nan detected in energy residual\n");
+    }
+}
+
+inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
+                                      const Quaternion *__restrict__ d_rot,
+                                      Vec3Vec3 *__restrict__ R_int, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
 {
 
-    // if (n_glob == 2)
-    // {
-    //     int a = 1;
-    // }
+    if (n_glob == 2)
+    {
+        int a = 1;
+    }
 
     // assert(ie < X.size() - 1);
     const Vec3 &X1 = X[ie];
     const Vec3 &X2 = X[ie + 1];
-    const Vec3 &d1 = d[ie].trans;
-    const Vec3 &d2 = d[ie + 1].trans;
+    const Vec3 &d1 = d_trans[ie];
+    const Vec3 &d2 = d_trans[ie + 1];
 
-    // cout d2 = " << d2.transpose() << endl;
+    // cout << "d1 " << d1.transpose() << endl;
+    // cout << "d2 " << d2.transpose() << endl;
 
-    const Mat3 T = d[ie].rot.to_matrix();
+    const Mat3 T = d_rot[ie].to_matrix();
     const Vec3 t1 = T.col(0);
     const Vec3 t2 = T.col(1);
     const Vec3 t3 = T.col(2);
 
-    const Mat3 U = d[ie + 1].rot.to_matrix();
+    const Mat3 U = d_rot[ie + 1].to_matrix();
     const Vec3 u1 = U.col(0);
     const Vec3 u2 = U.col(1);
     const Vec3 u3 = U.col(2);
@@ -89,13 +113,14 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-    constexpr Scalar MAX_ANGLE = 89 * M_PI / 180;
+#define MAX_ANGLE 5 * M_PI / 180
     assert(abs(theta_l1) < MAX_ANGLE);
     assert(abs(theta_l2) < MAX_ANGLE);
     assert(abs(theta_l3) < MAX_ANGLE);
     assert(abs(theta_l4) < MAX_ANGLE);
     assert(abs(theta_l5) < MAX_ANGLE);
     assert(abs(theta_l6) < MAX_ANGLE);
+#undef MAX_ANGLE
 
     Eigen::Matrix<Scalar, 12, 7> F_transpose; // Transpose of F where zero rows in F are excluded
     constexpr Index f4 = 0;
@@ -172,24 +197,24 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     //      << F.transpose() << endl;
 
     /*Calculate local internal forces based on linear 3D beam theory*/
-    Vec7 R_int_l = calc_nodal_forces_local(ri_e, ro_e, l0, E, G, ul,
-                                           theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
+    Vec7 R_int_e_l = calc_nodal_forces_local(ri_e, ro_e, l0, E, G, ul,
+                                             theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
 
     // cout << "R_int_l:\n"
     //      << R_int_l << endl;
 
-    const Vec12 R_int = F_transpose * R_int_l;
-    assert(R_int.allFinite());
+    const Vec12 R_int_e = F_transpose * R_int_e_l;
+    assert(R_int_e.allFinite());
     // cout << "R_int:\n"
     //      << R_int << endl;
 
     /*R is the residual force moved to the right hand side. If we have:
     M*a + R_int = R_ext, this is here instead handled as:
     M*a = R, meaning that R_int has negative contributions to R*/
-    R[ie].trans -= R_int.segment(0, 3);
-    R[ie].rot -= R_int.segment(3, 3);
-    R[ie + 1].trans -= R_int.segment(6, 3);
-    R[ie + 1].rot -= R_int.segment(9, 3);
+    R_int[ie].trans += R_int_e.segment(0, 3);
+    R_int[ie].rot += R_int_e.segment(3, 3);
+    R_int[ie + 1].trans += R_int_e.segment(6, 3);
+    R_int[ie + 1].rot += R_int_e.segment(9, 3);
 }
 
 inline Vec7 calc_nodal_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
@@ -232,12 +257,12 @@ inline Vec7 calc_nodal_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, S
     const Scalar M6 = E * I / l0 * (2 * theta_3l + 4 * theta_6l);
 
     // Vec12 R_int_l = {F1, 0, 0, M1, M2, M3, F4, 0, 0, M4, M5, M6};
-    Vec7 R_int_l = {M1, M2, M3, F4, M4, M5, M6};
+    const Vec7 R_int_e_l = {M1, M2, M3, F4, M4, M5, M6};
     // cout << "fix\n";
     // //Vec12 R_int_l = {0, 0, 0, 0, M2, M3, 0, 0, 0, 0, M5, M6};
     // Vec12 R_int_l = {0, 0, 0, 0, M2, M3, 0, 0, 0, 0, M5, M6};
-    assert(R_int_l.allFinite());
-    return R_int_l;
+    assert(R_int_e_l.allFinite());
+    return R_int_e_l;
 }
 
 // /*Bending. Euler Bernoulli is used, symmetrical cross section
@@ -298,19 +323,22 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     const Scalar E = config.E;
     const Scalar G = config.get_G();
 
-/*Set force vector to zero first*/
+/*Start by setting internal forces to zero and external forces to the static loads*/
 #pragma omp parallel for
     for (Index i = 0; i < N; i++)
     {
-        beam_system.R[i].set_zero();
+        beam_system.R_int[i].set_zero();
+        beam_system.R_ext[i].trans = beam_system.R_static[i].trans;
+        beam_system.R_ext[i].rot = beam_system.R_static[i].rot;
     }
-
+    // print_std_vector(beam_system.R_ext, "R_ext");
 #pragma omp parallel for
     for (Index ie = 0; ie < Ne; ie++)
     {
         if (ie % 2 == 0)
         {
-            calc_element_inner_forces(ie, X.data(), beam_system.u.data(), beam_system.R.data(), geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+            calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
+                                      beam_system.R_int.data(), geometry.ri_e(ie), geometry.ro_e(ie), E, G);
         }
     }
 #pragma omp parallel for
@@ -319,7 +347,8 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
 
         if (ie % 2 == 1)
         {
-            calc_element_inner_forces(ie, X.data(), beam_system.u.data(), beam_system.R.data(), geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+            calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
+                                      beam_system.R_int.data(), geometry.ri_e(ie), geometry.ro_e(ie), E, G);
         }
     }
     // for (Index ie = 0; ie < Ne; ie++)
@@ -380,92 +409,101 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     //     }
 }
 
-inline void step_central_differences(Scalar dt, vector<Vec3Quat> &u, vector<Vec3Vec3> &v, vector<Scalar> M_inv,
-                                     const vector<Vec3> &J_u, vector<Vec3Vec3> &R, const vector<Vec3Vec3> &R_static)
-{
+// inline void step_central_differences(Scalar dt, Index N, Vec3Quat *__restrict__ u, Vec3Vec3 *__restrict__ v,
+//                                      const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
+//                                      const Vec3Vec3 *__restrict__ R_int, const Vec3Vec3 *__restrict__ R_ext,
+//                                      bool check_energy_balance, Scalar &W_int, Scalar &W_ext, Scalar &KE)
+// {
 
-    // print_std_vector(R, "R");
+//     // print_std_vector(R, "R");
 
-    // print_std_vector(R_static, "R_static");
+//     // print_std_vector(R_static, "R_static");
 
-    // Vec3Quat::print_array(u, "u", true, true);
+//     // Vec3Quat::print_array(u, "u", true, true);
 
-    // print_std_vector(v, "v");
+//     // print_std_vector(v, "v");
 
-    const Index N = u.size();
-#pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
-        // cout << "remove!\n";
-        // if (i == 0)
-        //     continue;
-        const Vec3 R_trans = R_static[i].trans + R[i].trans;
-        const Vec3 R_rot = R_static[i].rot + R[i].rot;
-        assert(R_trans.allFinite());
-        assert(R_rot.allFinite());
+//     Scalar dW_int = 0, dW_ext = 0;
+//     KE = 0;
 
-        /*--------------------------------------------------------------------
-        Translations
-        --------------------------------------------------------------------*/
-        v[i].trans += dt * M_inv[i] * R_trans;
-        u[i].trans += dt * v[i].trans;
-        // cout << "v " << v[i].trans << endl
-        //      << "u " << u[i].trans << endl;
-        /*--------------------------------------------------------------------
-        Rotations
-        --------------------------------------------------------------------*/
-        Quaternion &q = u[i].rot;
-        // Optimize this! use Quaternion product directly instead to rotate
-        Mat3 U = q.to_matrix();
-        // cout << "U prior\n"
-        //      << U << endl;
-        const Vec3 R_rot_u = U.transpose() * R_rot; /*Transform nodal force to node frame*/
-        Vec3 &omega_u = v[i].rot;                   /*The angular velocities are related to the body frame*/
-        const Vec3 &J_u_i = J_u[i];
+// #pragma omp parallel for reduction(+ : dW_int) reduction(+ : dW_ext) reduction(+ : KE)
+//     for (Index i = 0; i < N; i++)
+//     {
+//         // cout << "remove!\n";
+//         // if (i == 0)
+//         //     continue;
 
-        /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
-        // cout << "R_rot_u " << R_rot_u << endl;
-        // cout << "J_u " << J_u_i << endl;
-        const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u_i.array() * omega_u.array()})).array() / J_u_i.array();
-        // cout << "omega_u_dot " << omega_u_dot << endl;
-        omega_u += dt * omega_u_dot;
-        // cout << "omega_u " << omega_u << endl;
-        /*How to update rotations: For now I will use Hughes-Winges.
-        I could also consider using the Quaternion diff eqn to do it, and normalize it,
-        would probably be better/faster
+//         const Vec3 &R_int_trans = R_int[i].trans;
+//         const Vec3 &R_int_rot = R_int[i].rot;
+//         const Vec3 &R_ext_trans = R_ext[i].trans;
+//         const Vec3 &R_ext_rot = R_ext[i].rot;
+//         assert(R_int_trans.allFinite());
+//         assert(R_int_rot.allFinite());
+//         assert(R_ext_trans.allFinite());
+//         assert(R_ext_rot.allFinite());
 
-        Hughes Winges: (Computing inverse or direct solver?) note that thus differs
-        from the equation in the hopperstad lecture notes since here omega_u is
-        used instead of omega*/
-        U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(omega_u)).inverse() *
-            (Mat3::Identity() + 0.5 * dt * skew_symmetric(omega_u));
-        assert(U.allFinite());
+//         /*--------------------------------------------------------------------
+//         Translations
+//         --------------------------------------------------------------------*/
+//         v[i].trans += dt * (R_ext_trans - R_int_trans) / M[i];
+//         u[i].trans += dt * v[i].trans;
+//         // cout << "v " << v[i].trans << endl
+//         //      << "u " << u[i].trans << endl;
+//         /*--------------------------------------------------------------------
+//         Rotations
+//         --------------------------------------------------------------------*/
+//         Quaternion &q = u[i].rot;
+//         // Optimize this! use Quaternion product directly instead to rotate
+//         Mat3 U = q.to_matrix();
+//         // cout << "U prior\n"
+//         //      << U << endl;
+//         const Vec3 R_rot_u = U.transpose() * (R_ext_rot - R_int_rot); /*Transform nodal force to node frame*/
+//         Vec3 &omega_u = v[i].rot;                                     /*The angular velocities are related to the body frame*/
+//         const Vec3 &J_u_i = J_u[i];
 
-        /*Quaternion compound rotation*/
-        // const Vec3 omega = U * omega_u;
-        // const Vec3 Delta_Theta_pseudo = dt * omega;
-        // const Scalar Delta_Theta_val = Delta_Theta_pseudo.norm();
-        // Quaternion delta_q;
-        // delta_q.q0 = cos(Delta_Theta_pseudo);
-        // delta_q.q1 =
-        //     quat = quat;
+//         /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
+//         // cout << "R_rot_u " << R_rot_u << endl;
+//         // cout << "J_u " << J_u_i << endl;
+//         const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u_i.array() * omega_u.array()})).array() / J_u_i.array();
+//         // cout << "omega_u_dot " << omega_u_dot << endl;
+//         omega_u += dt * omega_u_dot;
+//         // cout << "omega_u " << omega_u << endl;
+//         /*How to update rotations: For now I will use Hughes-Winges.
+//         I could also consider using the Quaternion diff eqn to do it, and normalize it,
+//         would probably be better/faster
 
-        // Eigen::Quaternion<Scalar> qu{U};
-        // Vec3 a;
-        // Vec3 b = qu*a;
+//         Hughes Winges: (Computing inverse or direct solver?) note that thus differs
+//         from the equation in the hopperstad lecture notes since here omega_u is
+//         used instead of omega*/
+//         U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(omega_u)).inverse() *
+//             (Mat3::Identity() + 0.5 * dt * skew_symmetric(omega_u));
+//         assert(U.allFinite());
 
-        // U = U * (Mat3::Identity() + dt * skew_symmetric(omega_u));
-        //   if (i == N - 1)
-        //   {
-        //       cout << "omega_u " << omega_u.transpose() << endl;
-        //   }
-        //   cout << "U\n"
-        //        << U << endl;
-        u[i].rot.from_matrix(U);
+//         /*Quaternion compound rotation*/
+//         // const Vec3 omega = U * omega_u;
+//         // const Vec3 Delta_Theta_pseudo = dt * omega;
+//         // const Scalar Delta_Theta_val = Delta_Theta_pseudo.norm();
+//         // Quaternion delta_q;
+//         // delta_q.q0 = cos(Delta_Theta_pseudo);
+//         // delta_q.q1 =
+//         //     quat = quat;
 
-        // R[i].set_zero(); /*Setting the load vector to zero so it's ready for assembly in the next timestep*/
-    }
-}
+//         // Eigen::Quaternion<Scalar> qu{U};
+//         // Vec3 a;
+//         // Vec3 b = qu*a;
+
+//         // U = U * (Mat3::Identity() + dt * skew_symmetric(omega_u));
+//         //   if (i == N - 1)
+//         //   {
+//         //       cout << "omega_u " << omega_u.transpose() << endl;
+//         //   }
+//         //   cout << "U\n"
+//         //        << U << endl;
+//         u[i].rot.from_matrix(U);
+
+//         // R[i].set_zero(); /*Setting the load vector to zero so it's ready for assembly in the next timestep*/
+//     }
+// }
 
 inline void calc_static_loads(const Config &config, const Geometry &geometry, vector<Vec3Vec3> &R_static)
 {
@@ -504,25 +542,26 @@ inline void set_simple_bc(BC_Case bc_case, const Geometry &geometry, BeamSystem 
 {
     Index N = geometry.get_N();
 
-    vector<Vec3Quat> &u = beam_system.u;
+    vector<Vec3> d_trans = beam_system.d_trans;
+    vector<Quaternion> &d_rot = beam_system.d_rot;
     vector<Vec3Vec3> &v = beam_system.v;
 
-    assert(N == u.size() && N == v.size());
+    assert(N == d_trans.size() && N == d_rot.size() && N == v.size());
 
     switch (bc_case)
     {
     case BC_Case::NONE:
         return;
     case BC_Case::CANTILEVER:
-        u[0].trans = {0, 0, 0};
+        d_trans[0] = {0, 0, 0};
         v[0].trans = {0, 0, 0};
-        u[0].rot.from_matrix(Mat3::Identity());
+        d_rot[0].from_matrix(Mat3::Identity());
         v[0].rot = {0, 0, 0};
         break;
     case BC_Case::SIMPLY_SUPPORTED:
-        u[0].trans = {0, 0, 0};
+        d_trans[0] = {0, 0, 0};
         v[0].trans = {0, 0, 0};
-        u[N - 1].trans = {0, 0, 0};
+        d_rot[N - 1] = {0, 0, 0};
         v[N - 1].trans = {0, 0, 0};
         break;
     default:

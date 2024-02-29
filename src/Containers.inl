@@ -7,13 +7,6 @@ inline Mat3 Quaternion::to_matrix() const
     Mat3 triad = 2 * Mat3{{q0 * q0 + q1 * q1 - 0.5, q1 * q2 - q3 * q0, q1 * q3 + q2 * q0},
                           {q2 * q1 + q3 * q0, q0 * q0 + q2 * q2 - 0.5, q2 * q3 - q1 * q0},
                           {q3 * q1 - q2 * q0, q3 * q2 + q1 * q0, q0 * q0 + q3 * q3 - 0.5}};
-
-    Mat3 R = triad;
-    // cout << "det R " << R.determinant() << endl;
-    // cout << "R^T " << R.transpose() << endl;
-    // cout << "R^-1 " << R.inverse() << endl;
-    // cout << "val " << (R.transpose() - R.inverse()).norm() << endl;
-    // cout << "nrm " << this->norm() << endl;
     assert(is_orthogonal(triad));
     return triad;
 }
@@ -85,38 +78,38 @@ inline void Quaternion::normalize()
     q3 *= inv_norm;
 }
 
-inline Vec3Quat::Vec3Quat()
-{
-    static_assert(sizeof(Vec3Quat) == sizeof(Scalar) * 7);
-    trans = {0, 0, 0};
-    rot.from_matrix(Mat3::Identity());
-}
+// inline Vec3Quat::Vec3Quat()
+// {
+//     static_assert(sizeof(Vec3Quat) == sizeof(Scalar) * 7);
+//     trans = {0, 0, 0};
+//     rot.from_matrix(Mat3::Identity());
+// }
 
-inline void Vec3Quat::print_array(vector<Vec3Quat> arr, string label, bool print_trans, bool print_rot)
-{
-    if (label != "")
-        cout << label << ":" << endl;
-    if (print_trans)
-    {
-        cout << "trans:\n";
-        for (const auto &e : arr)
-        {
-            cout << e.trans.transpose() << ",\n";
-        }
-    }
-    if (print_rot)
-    {
-        cout << "\nrot:\n";
-        for (const auto &e : arr)
-        {
-            cout << "{" << e.rot.to_matrix() << "},\n";
-        }
-    }
-    cout << endl;
-}
+// inline void Vec3Quat::print_array(vector<Vec3Quat> arr, string label, bool print_trans, bool print_rot)
+// {
+//     if (label != "")
+//         cout << label << ":" << endl;
+//     if (print_trans)
+//     {
+//         cout << "trans:\n";
+//         for (const auto &e : arr)
+//         {
+//             cout << e.trans.transpose() << ",\n";
+//         }
+//     }
+//     if (print_rot)
+//     {
+//         cout << "\nrot:\n";
+//         for (const auto &e : arr)
+//         {
+//             cout << "{" << e.rot.to_matrix() << "},\n";
+//         }
+//     }
+//     cout << endl;
+// }
 
-inline ostream &operator<<(ostream &os, const Vec3Quat &rhs)
-{
-    return os << "{" << rhs.trans.transpose() << ",\n"
-              << rhs.rot.to_matrix() << "}";
-}
+// inline ostream &operator<<(ostream &os, const Vec3Quat &rhs)
+// {
+//     return os << "{" << rhs.trans.transpose() << ",\n"
+//               << rhs.rot.to_matrix() << "}";
+// }

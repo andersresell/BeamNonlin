@@ -55,6 +55,10 @@ void InputParser::parse_yaml_config_options(Config &config) const
     config.save_csv = read_optional_option<bool>(root_name_setup, "save_csv", true);
     config.n_write = read_optional_option<Index>(root_name_setup, "n_write", 1);
     config.check_energy_balance = read_optional_option<bool>(root_name_setup, "check_energy_balance", false);
+    if (config.check_energy_balance)
+    {
+        config.energy_balance_tol = read_optional_option<Scalar>(root_name_setup, "energy_balance_tol", 0.01);
+    }
 
     config.gravity_enabled = read_required_option<bool>(root_name_setup, "gravity_enabled");
     if (config.gravity_enabled)
@@ -93,17 +97,7 @@ void InputParser::parse_yaml_config_options(Config &config) const
     {
         cout << "Warning, CFL >= 1 (CFL = " << config.CFL << ")\n";
     }
-    Scalar rho;
-    Scalar CFL = 0.9;
-
-    BC_Case bc_case = BC_Case::NONE;
-
-    bool save_csv = true;
-    bool gravity_enabled = true;
-
-    Index n_omp_threads = 1;
 }
-
 void InputParser::parse_bcs_and_loads(const Geometry &geometry, Config &config) const
 {
     string root_name_bc = "bc";

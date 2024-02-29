@@ -16,6 +16,7 @@ struct Config
     BC_Case bc_case = BC_Case::NONE;
     vector<PointLoad> R_point_static;
     bool check_energy_balance;
+    Scalar energy_balance_tol;
 
     bool gravity_enabled = true;
     Vec3 gravity_acc;

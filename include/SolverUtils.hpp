@@ -2,13 +2,28 @@
 #include "Containers.hpp"
 #include "Geometry.hpp"
 
+// struct BeamSystem
+// {
+//     vector<Vec3Quat> u; /*Nodal displacements*/
+//     vector<Vec3Vec3> v;
+//     vector<Vec3Vec3> R_int, R_ext, R_static; /*Nodal forces*/
+//     vector<Scalar> M;                        /*Lumped mass */
+//     vector<Vec3> J_u;                        /*Moment of inertia in body frame*/
+//     Scalar W_int, W_ext, KE;                 /*Variables for energy balance check*/
+//     vector<Vec3Vec3> delta_u;                /*Used if checking energy balance*/
+
+//     BeamSystem(const Config &config, const Geometry &geometry);
+// };
 struct BeamSystem
 {
-    vector<Vec3Quat> u; /*Nodal displacements*/
+    vector<Vec3> d_trans;
+    vector<Quaternion> d_rot;
     vector<Vec3Vec3> v;
-    vector<Vec3Vec3> R, R_static; /*Nodal forces*/
-    vector<Scalar> M_inv;         /*Mass (pre inverted)*/
-    vector<Vec3> J_u;             /*Moment of inertia in body frame*/
+    vector<Vec3Vec3> R_int, R_ext, R_static; /*Nodal forces*/
+    vector<Scalar> M;                        /*Lumped mass */
+    vector<Vec3> J_u;                        /*Moment of inertia in body frame*/
+    Scalar W_int, W_ext, KE;                 /*Variables for energy balance check*/
+    vector<Vec3Vec3> delta_d;                /*Used if checking energy balance*/
 
     BeamSystem(const Config &config, const Geometry &geometry);
 };

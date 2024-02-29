@@ -4,16 +4,20 @@ void solve(Config &config, const Geometry &geometry)
 {
 
     create_output_dir(config);
-    BeamSystem beam_system{config, geometry};
+    BeamSystem beam_sys{config, geometry};
     calc_dt(config, geometry);
-    Index n_steps = config.get_n_steps();
+    const Index n_steps = config.get_n_steps();
 
-    calc_static_loads(config, geometry, beam_system.R_static);
+    calc_static_loads(config, geometry, beam_sys.R_static);
 
-    cout << "\n-----------------Starting simulation----------------\n";
-    cout << "Running with dt = " << config.dt << ", for " << n_steps << " timesteps\n"
-         << "for a total time of " << config.dt * n_steps << " seconds\n"
-         << "--------------------------------------------------------\n";
+    printf("\n"
+           "-----------------Starting simulation----------------\n"
+           "Running with dt = %f for %i timesteps,\n"
+           "for a total time of %f seconds\n"
+           "--------------------------------------------------------\n",
+           config.dt, n_steps, config.dt * n_steps);
+
+    assemble(config, geometry, beam_sys); //?
 
     Timer timer;
     timer.start_counter();
@@ -28,13 +32,14 @@ void solve(Config &config, const Geometry &geometry)
 
         if (n % 1000 == 0)
         {
-            cout << "\n---------------------------------\n"
-                 << "n = " << n << ", t = " << config.t
-                 << "\n---------------------------------\n";
+            printf("\n---------------------------------\n"
+                   "n = %i, t = %.5f"
+                   "\n---------------------------------\n",
+                   n, config.t);
         }
 
         // save output
-        save_csv(config, geometry, beam_system);
+        save_csv(config, geometry, beam_sys);
 
         // bool set_disp = false;
 
@@ -56,17 +61,21 @@ void solve(Config &config, const Geometry &geometry)
         //     beam_system.u[0].rot.from_matrix(T);
         //     beam_system.u[1].rot.from_matrix(U);
         // }
+        step_explicit(config, geometry, beam_sys);
+
+        check_energy_balance(config, beam_sys);
 
         // calculate internal loads
-        assemble(config, geometry, beam_system);
+        // assemble(config, geometry, beam_system);
 
         // step central differences (Includes updating displacements and nodal triads/Quaternions)
         // if (!set_disp)
-        // {
-        step_central_differences(config.dt, beam_system.u, beam_system.v, beam_system.M_inv,
-                                 beam_system.J_u, beam_system.R, beam_system.R_static);
+        // // {
+        // step_central_differences(config.dt, N, beam_system.u.data(), beam_system.v.data(), beam_system.M.data(),
+        //                          beam_system.J_u.data(), beam_system.R_int.data(), beam_system.R_ext.data(),
+        //                          check_energy_balance, config.W_int, config.W_ext, config.KE);
         // }
-        set_simple_bc(config.bc_case, geometry, beam_system);
+        // set_simple_bc(config.bc_case, geometry, beam_system);
     }
     timer.stop_counter();
     timer.print_elapsed_time();

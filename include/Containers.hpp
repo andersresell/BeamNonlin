@@ -12,22 +12,24 @@ struct Quaternion
     void normalize();
     friend ostream &operator<<(ostream &os, const Quaternion &rhs)
     {
-        os << "q0=" << rhs.q0 << "\nq1=" << rhs.q1 << "\nq2=" << rhs.q2 << "\nq3=" << rhs.q3 << endl;
+        return os << "q0=" << rhs.q0 << "\nq1=" << rhs.q1 << "\nq2=" << rhs.q2 << "\nq3=" << rhs.q3 << endl;
     }
 };
 
-struct Vec3Quat
-{
-    Vec3 trans;
-    Quaternion rot;
+// struct Vec3Quat
+// {
+//     Vec3 trans;
+//     Quaternion rot;
 
-    Vec3Quat();
+//     Vec3Quat();
 
-    friend ostream &operator<<(ostream &os, const Vec3Quat &rhs);
+//     friend ostream &operator<<(ostream &os, const Vec3Quat &rhs);
 
-    static void print_array(vector<Vec3Quat> arr, string label = "",
-                            bool print_trans = true, bool print_rot = false);
-};
+//     static void print_array(vector<Vec3Quat> arr, string label = "",
+//                             bool print_trans = true, bool print_rot = false);
+// };
+
+// struct Vec3Quat
 
 struct Vec3Vec3
 {

@@ -27,10 +27,12 @@ PointLoad::PointLoad(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Ve
 
     const Index N = X.size();
     assert(N >= 2);
+#ifndef NDEBUG
     for (const auto &Xi : X)
     {
         assert(Xi.y() == 0 && Xi.z() == 0); // only straigt beams aligned along x axis allowed for now
     }
+#endif
     Scalar L0 = (X[X.size() - 1] - X[0]).norm();
     Scalar x = rel_loc * L0;
     assert(x >= 0 && x <= L0);

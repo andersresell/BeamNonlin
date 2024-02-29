@@ -1,15 +1,28 @@
 #include "../include/SolverUtils.hpp"
 
 BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
+    : W_int{0}, W_ext{0}, KE{0}
 {
     Index N = geometry.get_N();
     Index Ne = N - 1;
-    u.resize(N);
+    d_trans.resize(N);
+    d_rot.resize(N);
     v.resize(N);
-    R.resize(N);
+    R_int.resize(N);
+    R_ext.resize(N);
     R_static.resize(N);
-    M_inv.resize(N);
+    M.resize(N);
     J_u.resize(N, Vec3::Zero());
+    if (config.check_energy_balance)
+    {
+        delta_d.resize(geometry.get_N());
+    }
+
+    for (Index i = 0; i < N; i++)
+    {
+        d_trans[i].setZero();
+        d_rot[i].from_matrix(Mat3::Identity());
+    }
 
     const Scalar rho = config.rho;
 
@@ -23,8 +36,8 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
 
         /*Lumped mass*/
 
-        M_inv[ie] += m / 2;
-        M_inv[ie + 1] += m / 2;
+        M[ie] += m / 2;
+        M[ie + 1] += m / 2;
 
         /*Moment of inertia*/
 
@@ -64,11 +77,11 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
         J_u[ie + 1] += 0.5 * Je;
     }
 
-    /*Inverting lumped mass*/
-    for (Index i = 0; i < N; i++)
-    {
-        M_inv[i] = 1 / M_inv[i];
-    }
+    // /*Inverting lumped mass*/
+    // for (Index i = 0; i < N; i++)
+    // {
+    //     M_inv[i] = 1 / M_inv[i];
+    // }
 }
 
 void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &beam_system)
@@ -91,16 +104,27 @@ void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &
     Index n_steps = config.get_n_steps();
     Scalar t = config.t;
     Scalar dt = config.dt;
+    bool check_energy = config.check_energy_balance;
 
     /*Create "header"*/
-    ost
-        << "#N, n_steps, n_write, t, dt\n"
-        << N << "," << n_steps << "," << n_w << "," << t << "," << dt << "\n"
-        << "\n";
+    ost << "#N, n_steps, n_write, t, dt, check_energy_balance\n"
+        << N << "," << n_steps << "," << n_w << "," << t << "," << dt << "," << check_energy << "\n";
+    /*Write energy*/
+    if (check_energy)
+    {
+        Scalar E_tot = beam_system.KE + beam_system.W_int - beam_system.W_ext;
+        ost << "KE, W_int, W_ext, E_tot\n"
+            << beam_system.KE << ", " << beam_system.W_int << ", " << beam_system.W_ext << ", " << E_tot << "\n";
+    }
+    else
+    {
+        ost << "\n\n";
+    }
+
     /*Write solution*/
     Index w = 12;
     ost << setw(w) << "#X1," << setw(w) << "X2," << setw(w) << "X3,"
-        << setw(w) << "u1," << setw(w) << "u2," << setw(w) << "u3,"
+        << setw(w) << "d1," << setw(w) << "d2," << setw(w) << "d3,"
         << setw(w) << "U11," << setw(w) << "U12," << setw(w) << "U13,"
         << setw(w) << "U21," << setw(w) << "U22," << setw(w) << "U23,"
         << setw(w) << "U31," << setw(w) << "U32," << setw(w) << "U33 "
@@ -111,17 +135,17 @@ void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &
     for (Index i = 0; i < N; i++)
     {
         const Vec3 &X = geometry.get_X()[i];
-        const Vec3 &u = beam_system.u[i].trans;
-        const Mat3 &U = beam_system.u[i].rot.to_matrix();
+        const Vec3 &d = beam_system.d_trans[i];
+        const Mat3 &U = beam_system.d_rot[i].to_matrix();
         const Vec3 &v = beam_system.v[i].trans;
         const Vec3 &omega_u = beam_system.v[i].rot;
 
         ost << setw(w) << X.x() << "," << setw(w) << X.y() << "," << setw(w) << X.z() << ","
-            << setw(w) << u.x() << "," << setw(w) << u.y() << "," << setw(w) << u.z() << ","
+            << setw(w) << d.x() << "," << setw(w) << d.y() << "," << setw(w) << d.z() << ","
             << setw(w) << U(0, 0) << "," << setw(w) << U(0, 1) << "," << setw(w) << U(0, 2) << ","
             << setw(w) << U(1, 0) << "," << setw(w) << U(1, 1) << "," << setw(w) << U(1, 2) << ","
             << setw(w) << U(2, 0) << "," << setw(w) << U(2, 1) << "," << setw(w) << U(2, 2) << ","
-            << setw(w) << v.x() << "," << setw(w) << u.y() << "," << setw(w) << u.z() << ","
+            << setw(w) << v.x() << "," << setw(w) << v.y() << "," << setw(w) << v.z() << ","
             << setw(w) << omega_u.x() << "," << setw(w) << omega_u.y() << "," << setw(w) << omega_u.z() << "\n";
     }
 }

@@ -13,6 +13,12 @@ SMALL_VAL = 1e-6
 MAX_TRIADS = 6
 MAX_NODES=1000
 
+#These are 1-indexed:
+LINE_HEADER_DATA = 2
+LINE_ENERGY_DATA = 4
+FIRST_LINE_OUPUT_DATA=6
+
+
 def plot_triad(ax, x,U,scale=1):
     assert x.shape==(3,)
     assert U.shape==(3,3)
@@ -36,6 +42,7 @@ class Plotter:
         self.n_steps = int(header[1])
         self.n_write = int(header[2])
         self.n_plot_triad = max(int(self.N/MAX_TRIADS),1)
+        self.check_energy_balance = bool(header[4])
         self.write_gif=write_gif
         if write_gif:
             self.output_tmp = "output_tmp"
@@ -47,10 +54,20 @@ class Plotter:
         else:
             self.i_nodes = np.arange(0,self.N,1)
     def read_header(self,n):
-        return np.genfromtxt(os.path.join(self.output_dir, str(n)+".csv"), delimiter=",", skip_header=1,max_rows=1)
+        return np.genfromtxt(os.path.join(self.output_dir, str(n)+".csv"), delimiter=",", skip_header=LINE_HEADER_DATA-1,max_rows=1)
     def read_data(self,n):
-        return  np.genfromtxt(os.path.join(self.output_dir, str(n) + ".csv"), delimiter=",", skip_header=4)
-    
+        data =  np.genfromtxt(os.path.join(self.output_dir, str(n) + ".csv"), delimiter=",", skip_header=FIRST_LINE_OUPUT_DATA-1)
+        return data
+    def read_energy_balance(self,n):
+        assert self.check_energy_balance
+        data = np.genfromtxt(os.path.join(self.output_dir, str(n)+".csv"), delimiter=",", skip_header=LINE_ENERGY_DATA-1,max_rows=1)
+        assert data.shape == (4,)
+        KE = data[0]
+        W_int = data[1]
+        W_ext = data[2]
+        E_tot = data[3]
+        return KE, W_int,W_ext,E_tot
+            
     def read_header_transient(self,n):
         header = self.read_header(n)
         self.t = header[3]
@@ -144,8 +161,40 @@ class Plotter:
             plt.ylim([-self.L0/5,self.L0/5])
             plt.pause(SMALL_VAL)
 
-    
-    
+    def plot_energy_balance(self):
+        if not self.check_energy_balance:
+            print("Energy balance was not monitored")
+            return
+        
+        t = []
+        KE = []
+        W_int = []
+        W_ext = []
+        E_tot = []
+        for n in range(self.n_steps):
+            if n % self.n_write != 0: continue
+            self.read_header_transient(n)
+            t.append(self.t)
+            KE_, W_int_,W_ext_, E_tot_ = self.read_energy_balance(n)
+            KE.append(KE_)
+            W_int.append(W_int_)
+            W_ext.append(W_ext_)
+            E_tot.append(E_tot_)
+        plt.figure()
+        t = np.array(t)
+        KE = np.array(KE)
+        W_int = np.array(W_int)
+        W_ext = np.array(W_ext)
+        E_tot = np.array(E_tot)
+        plt.plot(t,KE,label="KE")
+        plt.plot(t,W_int,label="W_int")
+        plt.plot(t,W_ext,label="W_ext")
+        plt.plot(t,E_tot,label="E_tot")
+        plt.legend()
+        plt.xlabel("$t$")
+        plt.ylabel("Energy $[J]$")
+        
+        
     def create_gif(self):
         assert self.write_gif
         print("Writing Gif...")
@@ -173,6 +222,7 @@ if __name__ == "__main__":
 
     p = Plotter("testing",write_gif=False)
     p.plot_end_node_transient()
+    p.plot_energy_balance()
     #p.animate_vertical_disp()  
     p.animate_3d()
     

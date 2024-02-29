@@ -74,12 +74,35 @@ inline Mat3 skew_symmetric(const Vec3 &a)
 }
 
 template <typename T>
+inline T sqr(T val)
+{
+    return val * val;
+}
+
+template <typename T>
 inline void print_std_vector(const vector<T> &v, string label = "")
 {
     if (label != "")
         cout << label << "\n";
     cout << "\n[";
     Index N = v.size();
+    for (Index i = 0; i < N; i++)
+    {
+        cout << " " << v[i];
+        if (i < N - 1)
+            cout << ",";
+        else
+            cout << "]\n";
+        cout << "\n";
+    }
+}
+
+template <typename T>
+inline void print_raw_array(const T *v, Index N, string label = "")
+{
+    if (label != "")
+        cout << label << "\n";
+    cout << "\n[";
     for (Index i = 0; i < N; i++)
     {
         cout << " " << v[i];
