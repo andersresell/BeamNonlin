@@ -49,7 +49,7 @@ inline void test_quat()
     for (Index i = 0; i < n_tests; i++)
     {
         Vec3 Theta = Vec3::Random() * 10;
-        cout << "Theta " << Theta << endl;
+
         Vec3 e = Theta.normalized();
         Scalar theta = Theta.norm();
         Mat3 R = Mat3::Identity() + sin(theta) * skew_symmetric(e) + (1 - cos(theta)) * skew_symmetric(e) * skew_symmetric(e);
@@ -61,6 +61,7 @@ inline void test_quat()
 
         if ((U - R).norm() > SMALL_SCALAR)
         {
+            cout << "Theta " << Theta << endl;
             cout << "Fail\n";
             cout << "U\n"
                  << U << endl;
@@ -75,7 +76,6 @@ inline void test_quat()
     {
         Vec3 Theta = Vec3::Random() * 10;
         Vec3 v0 = Vec3::Random() * 100;
-        cout << "Theta " << Theta << endl;
 
         Quaternion q{Theta};
         Vec3 vnq = q.rotate_vector(v0);
@@ -83,6 +83,7 @@ inline void test_quat()
         Vec3 vnr = R * v0;
         if ((vnq - vnr).norm() > SMALL_SCALAR)
         {
+            cout << "Theta " << Theta << endl;
             cout << "vector rotation failed\n";
             cout << "vnq " << vnq << endl
                  << "vnr " << vnr << endl;
@@ -99,6 +100,26 @@ inline void test_quat()
         if ((R_n_q - R_n).norm() > SMALL_SCALAR)
         {
             cout << "compoundd rotation failed\n";
+        }
+    }
+
+    cout << "third test\n";
+
+    for (Index i = 0; i < n_tests; i++)
+    {
+        Vec3 Theta = Vec3::Random() * 10;
+        Vec3 v0 = Vec3::Random() * 100;
+
+        Quaternion q{Theta};
+        Vec3 vnq = q.rotate_vector_reversed(v0);
+        const Mat3 R = q.to_matrix();
+        Vec3 vnr = R.transpose() * v0;
+        if ((vnq - vnr).norm() > SMALL_SCALAR)
+        {
+            cout << "Theta " << Theta << endl;
+            cout << "vector reversed rotation failed\n";
+            cout << "vnq " << vnq << endl
+                 << "vnr " << vnr << endl;
         }
     }
 

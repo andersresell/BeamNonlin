@@ -22,6 +22,9 @@ struct Quaternion
     /*Performs the operation vn = R(q)*v0*/
     Vec3 rotate_vector(const Vec3 &v0) const;
 
+    /*Performs the operation vn = R(q)^T*v0*/
+    Vec3 rotate_vector_reversed(const Vec3 &v0) const;
+
     friend ostream &operator<<(ostream &os, const Quaternion &rhs)
     {
         return os << "q0=" << rhs.q0 << "\nq1=" << rhs.q.x() << "\nq2=" << rhs.q.y() << "\nq3=" << rhs.q.z() << endl;

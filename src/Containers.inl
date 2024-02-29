@@ -122,6 +122,19 @@ inline Vec3 Quaternion::rotate_vector(const Vec3 &v0) const
     assert(is_close(vn.norm(), v0.norm()));
     return vn;
 }
+
+inline Vec3 Quaternion::rotate_vector_reversed(const Vec3 &v0) const
+{ /*Simply multiplying the transposed of Rodrigues formula for quaternions with the vector*/
+    Vec3 vn;
+    Scalar q1 = q.x();
+    Scalar q2 = q.y();
+    Scalar q3 = q.z();
+    vn.x() = 2 * ((q0 * q0 + q1 * q1 - 0.5) * v0.x() + (q2 * q1 + q3 * q0) * v0.y() + (q3 * q1 - q2 * q0) * v0.z());
+    vn.y() = 2 * ((q1 * q2 - q3 * q0) * v0.x() + (q0 * q0 + q2 * q2 - 0.5) * v0.y() + (q3 * q2 + q1 * q0) * v0.z());
+    vn.z() = 2 * ((q1 * q3 + q2 * q0) * v0.x() + (q2 * q3 - q1 * q0) * v0.y() + (q0 * q0 + q3 * q3 - 0.5) * v0.z());
+    assert(is_close(vn.norm(), v0.norm()));
+    return vn;
+}
 // inline Vec3Quat::Vec3Quat()
 // {
 //     static_assert(sizeof(Vec3Quat) == sizeof(Scalar) * 7);
