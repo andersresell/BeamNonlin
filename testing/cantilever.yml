@@ -1,14 +1,14 @@
 setup:
   CFL: 0.9
   n_max: 10000000
-  t_max: 300
-  n_write: 50
-  n_threads: 8
+  t_max: 60
+  n_write: 5000
+  n_threads: 4
   save_csv : true
-  gravity_enabled: true
+  gravity_enabled: false
   #gravity_acc: [0, 0, 0]
-  check_energy_balance: true
-  rayleigh_damping_mass_enabled: true
+  check_energy_balance: false
+  rayleigh_damping_mass_enabled: false
   alpha_rayleigh: 0.01
 
 bc: 
@@ -16,7 +16,7 @@ bc:
   
 loads: 
   point_loads:
-  - R: [0,100000000000 ,0, 0, 0,0]
+  - R: [0,10000 ,10000, 0, 0,0]
     rel_loc: 1
   # - R: [0, 10000, 10000, 0, 0, 0]
   #   rel_loc: 0.5
@@ -29,8 +29,8 @@ properties:
  
 geometry:
   L0: 5000
-  N: 20
-  D_outer_uniform: 50 #0.1
+  N: 1000
+  D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 
 

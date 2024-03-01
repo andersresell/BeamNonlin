@@ -420,62 +420,69 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
                                     const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
                                     Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot)
 {
-#pragma omp parallel for
-    for (Index i = 0; i < N; i++)
+#pragma omp parallel
     {
-        v_trans[i] += 0.5 * dt * (R_ext_trans[i] - R_int_trans[i]) / M[i];
-    }
-#pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
-        /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
-        const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
-        const Vec3 &omega_u = v_rot[i];
-        const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
-        v_rot[i] += 0.5 * dt * omega_u_dot;
+#pragma omp for nowait
+        for (Index i = 0; i < N; i++)
+        {
+            v_trans[i] += 0.5 * dt * (R_ext_trans[i] - R_int_trans[i]) / M[i];
+        }
+#pragma omp for
+        for (Index i = 0; i < N; i++)
+        {
+            /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
+            const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
+            const Vec3 &omega_u = v_rot[i];
+            const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
+            v_rot[i] += 0.5 * dt * omega_u_dot;
+        }
     }
 }
 
 inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot, Vec3 *__restrict__ d_trans,
                                 Quaternion *__restrict__ d_rot)
 {
-#pragma omp parallel for
-    for (Index i = 0; i < N; i++)
+#pragma omp parallel
     {
-        d_trans[i] += dt * v_trans[i];
-    }
-#pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
-        // Mat3 U = d_rot[i].to_matrix();
-        // U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(v[i].rot)).inverse() *
-        //     (Mat3::Identity() + 0.5 * dt * skew_symmetric(v[i].rot));
-        // assert(U.allFinite());
-        // d_rot[i].from_matrix(U);
+#pragma omp for nowait
+        for (Index i = 0; i < N; i++)
+        {
+            d_trans[i] += dt * v_trans[i];
+        }
+#pragma omp for
+        for (Index i = 0; i < N; i++)
+        {
+            // Mat3 U = d_rot[i].to_matrix();
+            // U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(v[i].rot)).inverse() *
+            //     (Mat3::Identity() + 0.5 * dt * skew_symmetric(v[i].rot));
+            // assert(U.allFinite());
+            // d_rot[i].from_matrix(U);
 
-        Quaternion &q = d_rot[i];
-        const Vec3 &omega_u = v_rot[i];
-        const Vec3 omega = q.rotate_vector(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
-        q.compound_rotate(dt * omega);
+            Quaternion &q = d_rot[i];
+            const Vec3 &omega_u = v_rot[i];
+            const Vec3 omega = q.rotate_vector(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
+            q.compound_rotate(dt * omega);
+        }
     }
 }
 
 inline void calc_delta_d(Scalar dt, Index N, Vec3 *__restrict__ delta_d_trans, Vec3 *__restrict__ delta_d_rot,
                          const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot)
 {
-#pragma omp parallel for // simd
-    for (Index i = 0; i < N; i++)
+#pragma omp parallel
     {
-        delta_d_trans[i] = dt * v_trans[i];
-    }
-
-#pragma omp parallel for // simd
-    for (Index i = 0; i < N; i++)
-    {
-        delta_d_rot[i] = dt * v_rot[i];
+#pragma omp for nowait
+        for (Index i = 0; i < N; i++)
+        {
+            delta_d_trans[i] = dt * v_trans[i];
+        }
+#pragma omp for
+        for (Index i = 0; i < N; i++)
+        {
+            delta_d_rot[i] = dt * v_rot[i];
+        }
     }
 }
-
 inline void work_update_partial(Index N, const Vec3 *__restrict__ delta_d_trans, const Vec3 *__restrict__ delta_d_rot,
                                 const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
                                 const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
