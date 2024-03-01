@@ -1,3 +1,4 @@
+
 #pragma once
 #include "../include/Solver.hpp"
 
@@ -353,10 +354,6 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
                                       geometry.ri_e(ie), geometry.ro_e(ie), E, G);
         }
     }
-    // for (Index ie = 0; ie < Ne; ie++)
-    // {
-    //     calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-    // }
 
     /*--------------------------------------------------------------------
     To avoid race conditions the following pattern is used to compute and
@@ -532,107 +529,6 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     for (Index i = 0; i < N; i++)
     {
         R_int_trans[i] += alpha * M[i] * v_trans[i];
-    }
-}
-
-inline void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sys)
-{
-    const Scalar dt = config.dt;
-    const Index N = geometry.get_N();
-    vector<Vec3> &d_trans = beam_sys.d_trans;
-    vector<Quaternion> &d_rot = beam_sys.d_rot;
-    vector<Vec3> &v_trans = beam_sys.v_trans;
-    vector<Vec3> &v_rot = beam_sys.v_rot;
-    vector<Vec3> &R_int_trans = beam_sys.R_int_trans;
-    vector<Vec3> &R_int_rot = beam_sys.R_int_rot;
-    vector<Vec3> &R_ext_trans = beam_sys.R_ext_trans;
-    vector<Vec3> &R_ext_rot = beam_sys.R_ext_rot;
-    const vector<Scalar> &M = beam_sys.M;
-    const vector<Vec3> &J_u = beam_sys.J_u;
-    const bool check_energy_balance = config.check_energy_balance;
-    const bool rayleigh_damping_mass_enabled = config.rayleigh_damping_mass_enabled;
-    Scalar &W_int = beam_sys.W_int;
-    Scalar &W_ext = beam_sys.W_ext;
-    Scalar &KE = beam_sys.KE;
-    vector<Vec3> &delta_d_trans = beam_sys.delta_d_trans; /*Only used if energy balance is checked*/
-    vector<Vec3> &delta_d_rot = beam_sys.delta_d_rot;     /*Only used if energy balance is checked*/
-
-    if (check_energy_balance)
-    {
-        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
-    }
-    else
-    {
-        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
-    }
-
-    // Index i = 500;
-    // // cout << "R_ext " << R_ext[i] << endl;
-    // // cout << "R_int " << R_int[i] << endl;
-    // // cout << "d_trans " << d_trans[i] << endl;
-    // // cout << "d_rot \n"
-    // //      << d_rot[i].to_matrix() << endl;
-    // Mat3 U = d_rot[i].to_matrix();
-    // Vec3 u2 = U.col(1);
-    // bool is_correct = u2.isApprox(Vec3{0, 1, 0});
-    // assert(is_correct);
-    // if (!is_correct)
-    // {
-    //     cout << "not correct\n";
-    //     exit(1);
-    // }
-
-    /*velocity at t_{n+1/2}*/
-    velocity_update_partial(dt, N, M.data(), J_u.data(), R_int_trans.data(), R_int_rot.data(),
-                            R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
-
-    /*Enforcing boundary conditions*/
-    set_simple_bc(config.bc_case, geometry, beam_sys);
-
-    /*Checking energy balance in two steps.
-    The equation to be computed is W_{n+1} = W_n + delta_u/2*(Rn + R_{n+1})
-    This will be done in two steps in order to not need double storage for R
-    First W += delta_u/2*R_n, then updating R, then W +=  * delta_u/2*R_{n+1}
-    */
-    if (check_energy_balance)
-    {
-        calc_delta_d(dt, N, delta_d_trans.data(), delta_d_rot.data(), v_trans.data(), v_rot.data());
-
-        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
-                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
-    }
-
-    /*Displacement at t_{n+1}*/
-    displacement_update(dt, N, v_trans.data(), v_rot.data(), d_trans.data(), d_rot.data());
-
-    /*Updating external and internal forces*/
-    assemble(config, geometry, beam_sys);
-
-    if (rayleigh_damping_mass_enabled)
-    {
-        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data());
-    }
-
-    /*Since the moments are allways used in the body frame, these are rotated
-    once and for all instead of every time they are needed.*/
-    rotate_moment_to_body_frame(N, d_rot.data(), R_int_rot.data(), R_ext_rot.data());
-
-    if (check_energy_balance)
-    {
-        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
-                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
-    }
-
-    /*velocity at t_{n+1} */
-    velocity_update_partial(dt, N, M.data(), J_u.data(), R_int_trans.data(), R_int_rot.data(),
-                            R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
-
-    /*Enforcing boundary conditions*/
-    set_simple_bc(config.bc_case, geometry, beam_sys);
-
-    if (check_energy_balance)
-    {
-        kinetic_energy_update(N, M.data(), J_u.data(), v_trans.data(), v_rot.data(), KE);
     }
 }
 

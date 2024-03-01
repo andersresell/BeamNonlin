@@ -56,6 +56,6 @@ inline void kinetic_energy_update(Index N, const Scalar *__restrict__ M, const V
 
 inline void rotate_moment_to_body_frame(Index N, const Quaternion *__restrict__ d_rot,
                                         Vec3 *__restrict__ R_int_rot, Vec3 *__restrict__ R_ext_rot);
-inline void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sys);
+void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sys);
 
 #include "../src/Solver.inl"

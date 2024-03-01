@@ -1,13 +1,13 @@
 setup:
   CFL: 0.9
   n_max: 10000000
-  t_max: 60
-  n_write: 5000
+  t_max: 20
+  n_write: 50
   n_threads: 4
   save_csv : true
   gravity_enabled: false
   #gravity_acc: [0, 0, 0]
-  check_energy_balance: false
+  check_energy_balance: true
   rayleigh_damping_mass_enabled: false
   alpha_rayleigh: 0.01
 
@@ -28,8 +28,8 @@ properties:
   rho: 7000
  
 geometry:
-  L0: 5000
-  N: 1000
+  L0: 10
+  N: 10
   D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 
