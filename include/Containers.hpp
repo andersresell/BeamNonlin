@@ -46,19 +46,19 @@ struct Quaternion
 
 // struct Vec3Quat
 
-struct Vec3Vec3
-{
-    Vec3 trans, rot;
-    Vec3Vec3() : trans{Vec3::Zero()}, rot{Vec3::Zero()} {}
-    void set_zero()
-    {
-        trans = Vec3::Zero();
-        rot = Vec3::Zero();
-    }
-    friend ostream &operator<<(ostream &os, const Vec3Vec3 &rhs)
-    {
-        return os << "{" << rhs.trans.transpose() << "}, {" << rhs.rot.transpose() << "}";
-    }
-};
+// struct Vec3Vec3
+// {
+//     Vec3 trans, rot;
+//     Vec3Vec3() : trans{Vec3::Zero()}, rot{Vec3::Zero()} {}
+//     void set_zero()
+//     {
+//         trans = Vec3::Zero();
+//         rot = Vec3::Zero();
+//     }
+//     friend ostream &operator<<(ostream &os, const Vec3Vec3 &rhs)
+//     {
+//         return os << "{" << rhs.trans.transpose() << "}, {" << rhs.rot.transpose() << "}";
+//     }
+// };
 
 #include "../src/Containers.inl"

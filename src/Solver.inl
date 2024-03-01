@@ -24,8 +24,8 @@ inline void check_energy_balance(const Config &config, const BeamSystem &beam_sy
 }
 
 inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
-                                      const Quaternion *__restrict__ d_rot,
-                                      Vec3Vec3 *__restrict__ R_int, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
+                                      const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
+                                      Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
 {
 
     // if (n_glob == 2)
@@ -197,8 +197,8 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     //      << F.transpose() << endl;
 
     /*Calculate local internal forces based on linear 3D beam theory*/
-    const Vec7 R_int_e_l = calc_nodal_forces_local(ri_e, ro_e, l0, E, G, ul,
-                                                   theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
+    const Vec7 R_int_e_l = calc_element_forces_local(ri_e, ro_e, l0, E, G, ul,
+                                                     theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
 
     // cout << "R_int_l:\n"
     //      << R_int_l << endl;
@@ -211,17 +211,16 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     /*R is the residual force moved to the right hand side. If we have:
     M*a + R_int = R_ext, this is here instead handled as:
     M*a = R, meaning that R_int has negative contributions to R*/
-    R_int[ie].trans += R_int_e.segment(0, 3);
-    R_int[ie].rot += R_int_e.segment(3, 3);
-    R_int[ie + 1].trans += R_int_e.segment(6, 3);
-    R_int[ie + 1].rot += R_int_e.segment(9, 3);
+    R_int_trans[ie] += R_int_e.segment(0, 3);
+    R_int_rot[ie] += R_int_e.segment(3, 3);
+    R_int_trans[ie + 1] += R_int_e.segment(6, 3);
+    R_int_rot[ie + 1] += R_int_e.segment(9, 3);
 }
 
-inline Vec7 calc_nodal_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
-                                    Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
-                                    Scalar theta_5l, Scalar theta_6l)
+inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
+                                      Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
+                                      Scalar theta_5l, Scalar theta_6l)
 {
-
     const Scalar A = M_PI * (ro * ro - ri * ri);
     const Scalar I = M_PI / 4 * (ro * ro * ro * ro - ri * ri * ri * ri);
     const Scalar J = 2 * I;
@@ -327,18 +326,20 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
 #pragma omp parallel for
     for (Index i = 0; i < N; i++)
     {
-        beam_system.R_int[i].set_zero();
-        beam_system.R_ext[i].trans = beam_system.R_static[i].trans;
-        beam_system.R_ext[i].rot = beam_system.R_static[i].rot;
+        beam_system.R_int_trans[i] = {0, 0, 0};
+        beam_system.R_int_rot[i] = {0, 0, 0};
+        beam_system.R_ext_trans[i] = beam_system.R_static_trans[i];
+        beam_system.R_ext_rot[i] = beam_system.R_static_rot[i];
     }
-    // print_std_vector(beam_system.R_ext, "R_ext");
+
 #pragma omp parallel for
     for (Index ie = 0; ie < Ne; ie++)
     {
         if (ie % 2 == 0)
         {
             calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-                                      beam_system.R_int.data(), geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+                                      beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+                                      geometry.ri_e(ie), geometry.ro_e(ie), E, G);
         }
     }
 #pragma omp parallel for
@@ -348,7 +349,8 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
         if (ie % 2 == 1)
         {
             calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-                                      beam_system.R_int.data(), geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+                                      beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+                                      geometry.ri_e(ie), geometry.ro_e(ie), E, G);
         }
     }
     // for (Index ie = 0; ie < Ne; ie++)
@@ -388,7 +390,9 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
 
     //         for (Index ie = a; ie < b; ie++)
     //         {
-    //             calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+    //             calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
+    //                                       beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+    //                                       geometry.ri_e(ie), geometry.ro_e(ie), E, G);
     //         }
     //     }
     // #pragma omp parallel
@@ -404,9 +408,225 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
 
     //         for (Index ie = a; ie < b; ie++)
     //         {
-    //             calc_element_inner_forces(ie, X, beam_system.u, beam_system.R, geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+    //             calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
+    //                                       beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+    //                                       geometry.ri_e(ie), geometry.ro_e(ie), E, G);
     //         }
     //     }
+}
+
+inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
+                                    const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
+                                    const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
+                                    Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot)
+{
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        v_trans[i] += 0.5 * dt * (R_ext_trans[i] - R_int_trans[i]) / M[i];
+    }
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
+        const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
+        const Vec3 &omega_u = v_rot[i];
+        const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
+        v_rot[i] += 0.5 * dt * omega_u_dot;
+    }
+}
+
+inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot, Vec3 *__restrict__ d_trans,
+                                Quaternion *__restrict__ d_rot)
+{
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        d_trans[i] += dt * v_trans[i];
+    }
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        // Mat3 U = d_rot[i].to_matrix();
+        // U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(v[i].rot)).inverse() *
+        //     (Mat3::Identity() + 0.5 * dt * skew_symmetric(v[i].rot));
+        // assert(U.allFinite());
+        // d_rot[i].from_matrix(U);
+
+        Quaternion &q = d_rot[i];
+        const Vec3 &omega_u = v_rot[i];
+        const Vec3 omega = q.rotate_vector(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
+        q.compound_rotate(dt * omega);
+    }
+}
+
+inline void calc_delta_d(Scalar dt, Index N, Vec3 *__restrict__ delta_d_trans, Vec3 *__restrict__ delta_d_rot,
+                         const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot)
+{
+#pragma omp parallel for // simd
+    for (Index i = 0; i < N; i++)
+    {
+        delta_d_trans[i] = dt * v_trans[i];
+    }
+
+#pragma omp parallel for // simd
+    for (Index i = 0; i < N; i++)
+    {
+        delta_d_rot[i] = dt * v_rot[i];
+    }
+}
+
+inline void work_update_partial(Index N, const Vec3 *__restrict__ delta_d_trans, const Vec3 *__restrict__ delta_d_rot,
+                                const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
+                                const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
+                                Scalar &W_ext, Scalar &W_int)
+{
+#pragma omp parallel for reduction(+ : W_int) reduction(+ : W_ext)
+    for (Index i = 0; i < N; i++)
+    {
+        /*The rotational dofs should have been rotated to the body frame allready*/
+        W_int += 0.5 * (delta_d_trans[i].dot(R_int_trans[i]) + delta_d_rot[i].dot(R_int_rot[i]));
+        W_ext += 0.5 * (delta_d_trans[i].dot(R_ext_trans[i]) + delta_d_rot[i].dot(R_ext_rot[i]));
+    }
+}
+
+inline void kinetic_energy_update(Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
+                                  const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot, Scalar &KE)
+{
+    KE = 0;
+#pragma omp parallel for reduction(+ : KE)
+    for (Index i = 0; i < N; i++)
+    {
+        const Vec3 &vt = v_trans[i];
+        const Vec3 &omega_u = v_rot[i];
+        KE += 0.5 * M[i] * vt.squaredNorm() + 0.5 * omega_u.dot(Vec3{J_u[i].array() * omega_u.array()});
+    }
+}
+
+inline void rotate_moment_to_body_frame(Index N, const Quaternion *__restrict__ d_rot,
+                                        Vec3 *__restrict__ R_int_rot, Vec3 *__restrict__ R_ext_rot)
+{
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        //     Mat3 U = d_rot[i].to_matrix();
+        //     R_int[i].rot = U.transpose() * R_int[i].rot;
+        //     R_ext[i].rot = U.transpose() * R_ext[i].rot;
+        const Quaternion &q = d_rot[i];
+        R_int_rot[i] = q.rotate_vector_reversed(R_int_rot[i]);
+        R_ext_rot[i] = q.rotate_vector_reversed(R_ext_rot[i]);
+    }
+}
+
+inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const Scalar *__restrict__ M,
+                                                   const Vec3 *__restrict__ v_trans, Vec3 *__restrict__ R_int_trans)
+{
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        R_int_trans[i] += alpha * M[i] * v_trans[i];
+    }
+}
+
+inline void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sys)
+{
+    const Scalar dt = config.dt;
+    const Index N = geometry.get_N();
+    vector<Vec3> &d_trans = beam_sys.d_trans;
+    vector<Quaternion> &d_rot = beam_sys.d_rot;
+    vector<Vec3> &v_trans = beam_sys.v_trans;
+    vector<Vec3> &v_rot = beam_sys.v_rot;
+    vector<Vec3> &R_int_trans = beam_sys.R_int_trans;
+    vector<Vec3> &R_int_rot = beam_sys.R_int_rot;
+    vector<Vec3> &R_ext_trans = beam_sys.R_ext_trans;
+    vector<Vec3> &R_ext_rot = beam_sys.R_ext_rot;
+    const vector<Scalar> &M = beam_sys.M;
+    const vector<Vec3> &J_u = beam_sys.J_u;
+    const bool check_energy_balance = config.check_energy_balance;
+    const bool rayleigh_damping_mass_enabled = config.rayleigh_damping_mass_enabled;
+    Scalar &W_int = beam_sys.W_int;
+    Scalar &W_ext = beam_sys.W_ext;
+    Scalar &KE = beam_sys.KE;
+    vector<Vec3> &delta_d_trans = beam_sys.delta_d_trans; /*Only used if energy balance is checked*/
+    vector<Vec3> &delta_d_rot = beam_sys.delta_d_rot;     /*Only used if energy balance is checked*/
+
+    if (check_energy_balance)
+    {
+        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
+    }
+    else
+    {
+        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
+    }
+
+    // Index i = 500;
+    // // cout << "R_ext " << R_ext[i] << endl;
+    // // cout << "R_int " << R_int[i] << endl;
+    // // cout << "d_trans " << d_trans[i] << endl;
+    // // cout << "d_rot \n"
+    // //      << d_rot[i].to_matrix() << endl;
+    // Mat3 U = d_rot[i].to_matrix();
+    // Vec3 u2 = U.col(1);
+    // bool is_correct = u2.isApprox(Vec3{0, 1, 0});
+    // assert(is_correct);
+    // if (!is_correct)
+    // {
+    //     cout << "not correct\n";
+    //     exit(1);
+    // }
+
+    /*velocity at t_{n+1/2}*/
+    velocity_update_partial(dt, N, M.data(), J_u.data(), R_int_trans.data(), R_int_rot.data(),
+                            R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
+
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config.bc_case, geometry, beam_sys);
+
+    /*Checking energy balance in two steps.
+    The equation to be computed is W_{n+1} = W_n + delta_u/2*(Rn + R_{n+1})
+    This will be done in two steps in order to not need double storage for R
+    First W += delta_u/2*R_n, then updating R, then W +=  * delta_u/2*R_{n+1}
+    */
+    if (check_energy_balance)
+    {
+        calc_delta_d(dt, N, delta_d_trans.data(), delta_d_rot.data(), v_trans.data(), v_rot.data());
+
+        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
+                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
+    }
+
+    /*Displacement at t_{n+1}*/
+    displacement_update(dt, N, v_trans.data(), v_rot.data(), d_trans.data(), d_rot.data());
+
+    /*Updating external and internal forces*/
+    assemble(config, geometry, beam_sys);
+
+    if (rayleigh_damping_mass_enabled)
+    {
+        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data());
+    }
+
+    /*Since the moments are allways used in the body frame, these are rotated
+    once and for all instead of every time they are needed.*/
+    rotate_moment_to_body_frame(N, d_rot.data(), R_int_rot.data(), R_ext_rot.data());
+
+    if (check_energy_balance)
+    {
+        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
+                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
+    }
+
+    /*velocity at t_{n+1} */
+    velocity_update_partial(dt, N, M.data(), J_u.data(), R_int_trans.data(), R_int_rot.data(),
+                            R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
+
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config.bc_case, geometry, beam_sys);
+
+    if (check_energy_balance)
+    {
+        kinetic_energy_update(N, M.data(), J_u.data(), v_trans.data(), v_rot.data(), KE);
+    }
 }
 
 // inline void step_central_differences(Scalar dt, Index N, Vec3Quat *__restrict__ u, Vec3Vec3 *__restrict__ v,
@@ -505,48 +725,16 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
 //     }
 // }
 
-inline void calc_static_loads(const Config &config, const Geometry &geometry, vector<Vec3Vec3> &R_static)
-{
-
-    /*Set to zero first*/
-    for (auto &e : R_static)
-    {
-        e.set_zero();
-    }
-
-    const bool gravity_enabled = config.gravity_enabled;
-    const Vec3 &g = config.gravity_acc;
-    const Scalar rho = config.rho;
-
-    for (Index ie = 0; ie < geometry.get_Ne(); ie++)
-    {
-        if (gravity_enabled)
-        {
-            const Scalar m = geometry.dx_e(ie) * geometry.A_e(ie) * rho;
-            R_static[ie].trans += 0.5 * m * g;
-            R_static[ie + 1].trans += 0.5 * m * g;
-            // R_static[ie].trans.y() += m * STANDARD_GRAVITY / 2;
-            // R_static[ie + 1].trans.y() += m * STANDARD_GRAVITY / 2;
-        }
-    }
-
-    /*Point loads*/
-    for (const PointLoad &pl : config.R_point_static)
-    {
-        R_static[pl.i].trans += pl.load.trans;
-        R_static[pl.i].rot += pl.load.rot;
-    }
-}
-
 inline void set_simple_bc(BC_Case bc_case, const Geometry &geometry, BeamSystem &beam_system)
 {
     Index N = geometry.get_N();
 
     vector<Vec3> d_trans = beam_system.d_trans;
     vector<Quaternion> &d_rot = beam_system.d_rot;
-    vector<Vec3Vec3> &v = beam_system.v;
+    vector<Vec3> &v_trans = beam_system.v_trans;
+    vector<Vec3> &v_rot = beam_system.v_rot;
 
-    assert(N == d_trans.size() && N == d_rot.size() && N == v.size());
+    assert(N == d_trans.size() && N == d_rot.size() && N == v_trans.size() && N == v_rot.size());
 
     switch (bc_case)
     {
@@ -554,15 +742,15 @@ inline void set_simple_bc(BC_Case bc_case, const Geometry &geometry, BeamSystem 
         return;
     case BC_Case::CANTILEVER:
         d_trans[0] = {0, 0, 0};
-        v[0].trans = {0, 0, 0};
+        v_trans[0] = {0, 0, 0};
         d_rot[0].from_matrix(Mat3::Identity());
-        v[0].rot = {0, 0, 0};
+        v_rot[0] = {0, 0, 0};
         break;
     case BC_Case::SIMPLY_SUPPORTED:
         d_trans[0] = {0, 0, 0};
-        v[0].trans = {0, 0, 0};
+        v_trans[0] = {0, 0, 0};
         d_trans[N - 1] = {0, 0, 0};
-        v[N - 1].trans = {0, 0, 0};
+        v_trans[N - 1] = {0, 0, 0};
         break;
     default:
         assert(false);

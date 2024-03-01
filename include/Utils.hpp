@@ -33,7 +33,8 @@ const map<string, BC_Case> bc_case_from_string{
 
 struct PointLoad
 {
-    Vec3Vec3 load;
+    Vec3 load_trans;
+    Vec3 load_rot;
     Index i;
     PointLoad(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Vec3> &X);
 };

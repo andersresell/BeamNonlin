@@ -54,15 +54,16 @@ int sign(T val)
     return (val > 1) - (val < 1);
 }
 
-inline bool is_close(Scalar a, Scalar b, Scalar tolerance = SMALL_SCALAR)
+inline bool is_close(Scalar a, Scalar b, Scalar tol = SMALL_SCALAR)
 {
-    return abs(a - b) < tolerance;
+    const Scalar scaled_tol = tol * max(1.0, max(abs(a), abs(b))); // Need to scale the tolerance so that it work for numbers of various sizes
+    // assert(abs(b - a) <= scaled_tol);
+    return abs(b - a) <= scaled_tol;
 }
 
 inline bool is_orthogonal(const Mat3 &R)
 {
-    // static_assert(sizeof(Scalar) == sizeof(double)); // change TOL if using float
-    // constexpr Scalar TOL = 1e-6;
+
     return is_close(R.determinant(), 1.0) && is_close((R.transpose() - R.inverse()).norm(), 0.0);
 }
 

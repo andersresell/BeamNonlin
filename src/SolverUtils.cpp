@@ -3,24 +3,28 @@
 BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
     : W_int{0}, W_ext{0}, KE{0}
 {
-    Index N = geometry.get_N();
-    Index Ne = N - 1;
-    d_trans.resize(N);
+    const Index N = geometry.get_N();
+    const Index Ne = N - 1;
+    d_trans.resize(N, Vec3::Zero());
     d_rot.resize(N);
-    v.resize(N);
-    R_int.resize(N);
-    R_ext.resize(N);
-    R_static.resize(N);
-    M.resize(N);
+    v_trans.resize(N, Vec3::Zero());
+    v_rot.resize(N, Vec3::Zero());
+    R_int_trans.resize(N, Vec3::Zero());
+    R_int_rot.resize(N, Vec3::Zero());
+    R_ext_trans.resize(N, Vec3::Zero());
+    R_ext_rot.resize(N, Vec3::Zero());
+    R_static_trans.resize(N, Vec3::Zero());
+    R_static_rot.resize(N, Vec3::Zero());
+    M.resize(N, 0.0);
     J_u.resize(N, Vec3::Zero());
     if (config.check_energy_balance)
     {
-        delta_d.resize(geometry.get_N());
+        delta_d_trans.resize(N);
+        delta_d_rot.resize(N);
     }
 
     for (Index i = 0; i < N; i++)
     {
-        d_trans[i].setZero();
         d_rot[i].from_matrix(Mat3::Identity());
     }
 
@@ -137,8 +141,8 @@ void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &
         const Vec3 &X = geometry.get_X()[i];
         const Vec3 &d = beam_system.d_trans[i];
         const Mat3 &U = beam_system.d_rot[i].to_matrix();
-        const Vec3 &v = beam_system.v[i].trans;
-        const Vec3 &omega_u = beam_system.v[i].rot;
+        const Vec3 &v = beam_system.v_trans[i];
+        const Vec3 &omega_u = beam_system.v_rot[i];
 
         ost << setw(w) << X.x() << "," << setw(w) << X.y() << "," << setw(w) << X.z() << ","
             << setw(w) << d.x() << "," << setw(w) << d.y() << "," << setw(w) << d.z() << ","

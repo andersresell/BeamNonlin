@@ -8,7 +8,7 @@ void solve(Config &config, const Geometry &geometry)
     calc_dt(config, geometry);
     const Index n_steps = config.get_n_steps();
 
-    calc_static_loads(config, geometry, beam_sys.R_static);
+    calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
 
     printf("\n"
            "-----------------Starting simulation----------------\n"
@@ -108,4 +108,42 @@ void calc_dt(Config &config, const Geometry &geometry)
          << "dt is chosen as CFL * dt_min, where CFL = " << config.CFL << endl
          << "dt = " << config.dt << endl
          << "----------------------------------------------------------\n";
+}
+
+void calc_static_loads(const Config &config, const Geometry &geometry,
+                       vector<Vec3> &R_static_trans, vector<Vec3> &R_static_rot)
+{
+    const Index N = geometry.get_N();
+    const Index Ne = N - 1;
+
+    /*Set to zero first*/
+    assert(R_static_trans.size() == N && R_static_rot.size() == N);
+    for (Index i = 0; i < N; i++)
+    {
+        R_static_trans[i].setZero();
+        R_static_rot[i].setZero();
+    }
+
+    const bool gravity_enabled = config.gravity_enabled;
+    const Vec3 &g = config.gravity_acc;
+    const Scalar rho = config.rho;
+
+    for (Index ie = 0; ie < Ne; ie++)
+    {
+        if (gravity_enabled)
+        {
+            const Scalar m = geometry.dx_e(ie) * geometry.A_e(ie) * rho;
+            R_static_trans[ie] += 0.5 * m * g;
+            R_static_trans[ie + 1] += 0.5 * m * g;
+            // R_static[ie].trans.y() += m * STANDARD_GRAVITY / 2;
+            // R_static[ie + 1].trans.y() += m * STANDARD_GRAVITY / 2;
+        }
+    }
+
+    /*Point loads*/
+    for (const PointLoad &pl : config.R_point_static)
+    {
+        R_static_trans[pl.i] += pl.load_trans;
+        R_static_rot[pl.i] += pl.load_rot;
+    }
 }

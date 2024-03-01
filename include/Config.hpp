@@ -17,6 +17,8 @@ struct Config
     vector<PointLoad> R_point_static;
     bool check_energy_balance;
     Scalar energy_balance_tol;
+    bool rayleigh_damping_mass_enabled;
+    Scalar alpha_rayleigh;
 
     bool gravity_enabled = true;
     Vec3 gravity_acc;

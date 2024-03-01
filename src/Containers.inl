@@ -10,12 +10,14 @@ inline Mat3 Quaternion::to_matrix() const
     Mat3 triad = 2 * Mat3{{q0 * q0 + q1 * q1 - 0.5, q1 * q2 - q3 * q0, q1 * q3 + q2 * q0},
                           {q2 * q1 + q3 * q0, q0 * q0 + q2 * q2 - 0.5, q2 * q3 - q1 * q0},
                           {q3 * q1 - q2 * q0, q3 * q2 + q1 * q0, q0 * q0 + q3 * q3 - 0.5}};
+
     assert(is_orthogonal(triad));
     return triad;
 }
 
 inline void Quaternion::from_matrix(const Mat3 &R)
 {
+
     assert(is_orthogonal(R));
     // See chapter 16.10 crisfield
     Scalar R11 = R(0, 0);
@@ -112,10 +114,10 @@ inline void Quaternion::compound_rotate(const Vec3 &Theta)
 
 inline Vec3 Quaternion::rotate_vector(const Vec3 &v0) const
 { /*Simply multiplying Rodrigues formula for quaternions with the vector*/
+    const Scalar q1 = q.x();
+    const Scalar q2 = q.y();
+    const Scalar q3 = q.z();
     Vec3 vn;
-    Scalar q1 = q.x();
-    Scalar q2 = q.y();
-    Scalar q3 = q.z();
     vn.x() = 2 * ((q0 * q0 + q1 * q1 - 0.5) * v0.x() + (q1 * q2 - q3 * q0) * v0.y() + (q1 * q3 + q2 * q0) * v0.z());
     vn.y() = 2 * ((q2 * q1 + q3 * q0) * v0.x() + (q0 * q0 + q2 * q2 - 0.5) * v0.y() + (q2 * q3 - q1 * q0) * v0.z());
     vn.z() = 2 * ((q3 * q1 - q2 * q0) * v0.x() + (q3 * q2 + q1 * q0) * v0.y() + (q0 * q0 + q3 * q3 - 0.5) * v0.z());
@@ -125,13 +127,14 @@ inline Vec3 Quaternion::rotate_vector(const Vec3 &v0) const
 
 inline Vec3 Quaternion::rotate_vector_reversed(const Vec3 &v0) const
 { /*Simply multiplying the transposed of Rodrigues formula for quaternions with the vector*/
+    const Scalar q1 = q.x();
+    const Scalar q2 = q.y();
+    const Scalar q3 = q.z();
     Vec3 vn;
-    Scalar q1 = q.x();
-    Scalar q2 = q.y();
-    Scalar q3 = q.z();
     vn.x() = 2 * ((q0 * q0 + q1 * q1 - 0.5) * v0.x() + (q2 * q1 + q3 * q0) * v0.y() + (q3 * q1 - q2 * q0) * v0.z());
     vn.y() = 2 * ((q1 * q2 - q3 * q0) * v0.x() + (q0 * q0 + q2 * q2 - 0.5) * v0.y() + (q3 * q2 + q1 * q0) * v0.z());
     vn.z() = 2 * ((q1 * q3 + q2 * q0) * v0.x() + (q2 * q3 - q1 * q0) * v0.y() + (q0 * q0 + q3 * q3 - 0.5) * v0.z());
+    assert(is_close(this->norm_sqr(), 1));
     assert(is_close(vn.norm(), v0.norm()));
     return vn;
 }

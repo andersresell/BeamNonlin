@@ -20,8 +20,8 @@ PointLoad::PointLoad(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Ve
 {
     assert(R_tmp.size() == 6);
 
-    this->load.trans = {R_tmp[0], R_tmp[1], R_tmp[2]};
-    this->load.rot = {R_tmp[3], R_tmp[4], R_tmp[5]};
+    this->load_trans = {R_tmp[0], R_tmp[1], R_tmp[2]};
+    this->load_rot = {R_tmp[3], R_tmp[4], R_tmp[5]};
 
     /*Finding the nearest node index corresponding to the relative location*/
 
