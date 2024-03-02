@@ -2,21 +2,21 @@ setup:
   CFL: 0.9
   n_max: 10000000
   t_max: 20
-  n_write: 50
+  n_write: 500
   n_threads: 4
   save_csv : true
   gravity_enabled: false
   #gravity_acc: [0, 0, 0]
   check_energy_balance: true
-  rayleigh_damping_mass_enabled: false
-  alpha_rayleigh: 0.01
+  rayleigh_damping_mass_enabled: true
+  alpha_rayleigh: 10
 
 bc: 
   case: "cantilever"
   
 loads: 
   point_loads:
-  - R: [0,10000 ,10000, 0, 0,0]
+  - R: [0,10000,100000, 10000, 0,-5000]
     rel_loc: 1
   # - R: [0, 10000, 10000, 0, 0, 0]
   #   rel_loc: 0.5
@@ -29,7 +29,7 @@ properties:
  
 geometry:
   L0: 10
-  N: 10
+  N: 20
   D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 

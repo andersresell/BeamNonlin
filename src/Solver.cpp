@@ -141,22 +141,6 @@ void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sy
         assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
     }
 
-    // Index i = 500;
-    // // cout << "R_ext " << R_ext[i] << endl;
-    // // cout << "R_int " << R_int[i] << endl;
-    // // cout << "d_trans " << d_trans[i] << endl;
-    // // cout << "d_rot \n"
-    // //      << d_rot[i].to_matrix() << endl;
-    // Mat3 U = d_rot[i].to_matrix();
-    // Vec3 u2 = U.col(1);
-    // bool is_correct = u2.isApprox(Vec3{0, 1, 0});
-    // assert(is_correct);
-    // if (!is_correct)
-    // {
-    //     cout << "not correct\n";
-    //     exit(1);
-    // }
-
     /*velocity at t_{n+1/2}*/
     velocity_update_partial(dt, N, M.data(), J_u.data(), R_int_trans.data(), R_int_rot.data(),
                             R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
@@ -180,6 +164,7 @@ void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sy
     /*Displacement at t_{n+1}*/
     displacement_update(dt, N, v_trans.data(), v_rot.data(), d_trans.data(), d_rot.data());
 
+    //////// Move this to a unfied force function
     /*Updating external and internal forces*/
     assemble(config, geometry, beam_sys);
 
@@ -187,6 +172,7 @@ void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sy
     {
         add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data());
     }
+    //////////
 
     /*Since the moments are allways used in the body frame, these are rotated
     once and for all instead of every time they are needed.*/
@@ -247,4 +233,99 @@ void calc_static_loads(const Config &config, const Geometry &geometry,
         R_static_trans[pl.i] += pl.load_trans;
         R_static_rot[pl.i] += pl.load_rot;
     }
+}
+
+void check_energy_balance(const Config &config, const BeamSystem &beam_sys)
+{
+    if (!config.check_energy_balance)
+    {
+        return;
+    }
+    const Scalar KE = beam_sys.KE;
+    const Scalar W_int = beam_sys.W_int;
+    const Scalar W_ext = beam_sys.W_ext;
+    const Scalar tol = config.energy_balance_tol;
+    const Scalar E_residal = KE + W_int - W_ext;
+
+    if (abs(E_residal) > tol * max(KE, max(W_int, W_ext)))
+    {
+        printf("Warning: Energy balance is not obeyed, energy residual = %f\n", E_residal);
+    }
+    else if (isnan(E_residal))
+    {
+        printf("Nan detected in energy residual\n");
+    }
+}
+
+inline void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
+                                                   Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
+                                                   Scalar theta_5l, Scalar theta_6l, Vec3 &f1, Vec3 &m1, Vec3 &f2, Vec3 &m2)
+{
+    const Scalar A = M_PI * (ro * ro - ri * ri);
+    const Scalar I = M_PI / 4 * (ro * ro * ro * ro - ri * ri * ri * ri);
+    const Scalar J = 2 * I;
+
+    /*Normal force (F1)
+     [[F1], = A*E/l0[[ 1 -1],*[[0],
+      [F4]]          [-1  1]]  [ul]]
+    */
+    const Scalar F1 = A * E * (-ul) / l0;
+    const Scalar F4 = -F1;
+
+    /*--------------------------------------------------------------------
+    Torsion:
+    Used the theory from this link:
+    https://www.acs.psu.edu/drussell/Demos/Torsional/torsional.html
+    which is a simple wave equation. As long as circular bars are used
+    I_p = K and these terms disappear.
+    Governing equation is then:
+    I_p * rho * phitors_tt = G * K * phitors_xx
+    --------------------------------------------------------------------*/
+    const Scalar K = J; // cicular cross-section
+    const Scalar M1 = G * K * (theta_1l - theta_4l) / l0;
+    const Scalar M4 = -M1;
+
+    /*Bending. Euler Bernoulli is used, symmetrical cross section
+    The original matrix reads
+    EI/L³ *[[ 12  6L  -12  6L ]
+            [ 6L  4L² -6L  2L²]
+            [-12 -6L   12 -6L ]
+            [ 6L  2L² -6L  4L²]]
+    multiplied by [w1 theta1, w2 theta2],
+    however, it can be simplified, since w1=w2=0,
+    rows 1 and 3 can be skipped resulting in
+    EI/L²**[[ 6   6 ]*[[theta1 ]
+            [ 4L  2L]  [theta2 ]]
+            [-6  -6 ]
+            [ 2L  4L]]
+    */
+
+    const Scalar F2 = E * I / (l0 * l0) * (6 * theta_2l + 6 * theta_5l);
+    const Scalar M2 = E * I / l0 * (4 * theta_2l + 2 * theta_5l);
+    const Scalar F5 = -F2;
+    const Scalar M5 = E * I / l0 * (2 * theta_2l + 4 * theta_5l);
+
+    const Scalar F3 = E * I / (l0 * l0) * (6 * theta_3l + 6 * theta_6l);
+    const Scalar M3 = E * I / l0 * (4 * theta_3l + 2 * theta_6l);
+    const Scalar F6 = -F3;
+    const Scalar M6 = E * I / l0 * (2 * theta_3l + 4 * theta_6l);
+    // const Scalar F2 = E * I / (l0 * l0) * (6 * theta_2l + 6 * theta_5l);
+    // const Scalar M2 = E * I / (l0 * l0) * (4 * l0 * theta_2l + 2 * l0 * theta_5l);
+    // const Scalar F5 = -F2;
+    // const Scalar M5 = E * I / (l0 * l0) * (2 * l0 * theta_2l + 4 * l0 * theta_5l);
+    f1.x() = F1;
+    f1.y() = F2;
+    f1.z() = F3;
+
+    m1.x() = M1;
+    m1.y() = -M3;
+    m1.z() = M2;
+
+    f2.x() = F4;
+    f2.y() = F5;
+    f2.z() = F6;
+
+    m2.x() = M4;
+    m2.y() = -M6;
+    m2.z() = M5;
 }

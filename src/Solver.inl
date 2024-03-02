@@ -2,27 +2,7 @@
 #pragma once
 #include "../include/Solver.hpp"
 
-inline void check_energy_balance(const Config &config, const BeamSystem &beam_sys)
-{
-    if (!config.check_energy_balance)
-    {
-        return;
-    }
-    const Scalar KE = beam_sys.KE;
-    const Scalar W_int = beam_sys.W_int;
-    const Scalar W_ext = beam_sys.W_ext;
-    const Scalar tol = config.energy_balance_tol;
-    const Scalar E_residal = KE + W_int - W_ext;
 
-    if (abs(E_residal) > tol * max(KE, max(W_int, W_ext)))
-    {
-        printf("Warning: Energy balance is not obeyed, energy residual = %f\n", E_residal);
-    }
-    else if (isnan(E_residal))
-    {
-        printf("Nan detected in energy residual\n");
-    }
-}
 
 inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
                                       const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
@@ -209,6 +189,44 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     // cout << "R_int:\n"
     //      << R_int << endl;
 
+    // Vec3 f1, m1;
+    // Vec3 f2, m2;
+
+    // calc_element_forces_local_TEST(ri_e, ro_e, l0, E, G, ul,
+    //                                theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6, f1, m1, f2, m2);
+    // Mat3 Etri;
+    // Etri.col(0) = e1;
+    // Etri.col(1) = e2;
+    // Etri.col(2) = e3;
+    // f1 = Etri * f1;
+    // f2 = Etri * f2;
+    // m1 = Etri * m1;
+    // m2 = Etri * m2;
+
+    // Vec12 R_rotated_eng;
+    // R_rotated_eng << f1, m1, f2, m2;
+
+    // cout << "R_int_e\n"
+    //      << R_int_e << endl;
+    // cout << "R_rotated_eng\n"
+    //      << R_rotated_eng << endl;
+
+    // Vec12 rel_diff_percent = 100 * (R_int_e - R_rotated_eng).array() / R_int_e.array();
+    // for (Index i = 0; i < 12; i++)
+    // {
+    //     if (!isnan(rel_diff_percent[i]) && R_int_e[i] > 100)
+    //     {
+    //         // printf("rel diff too big\n");
+
+    //         assert(abs(rel_diff_percent[i] < 1));
+    //     }
+    // }
+    // R_int_trans[ie] += f1;
+    // R_int_rot[ie] += m1;
+    // R_int_trans[ie + 1] += f2;
+    // R_int_rot[ie + 1] += m2;
+    // cout << "rel diff %\n"
+    //      << rel_diff_percent << endl;
     /*R is the residual force moved to the right hand side. If we have:
     M*a + R_int = R_ext, this is here instead handled as:
     M*a = R, meaning that R_int has negative contributions to R*/
