@@ -104,6 +104,7 @@ class Plotter:
             plt.title("n="+str(n)+", t="+str(self.t)+", dt="+str(self.dt))
             
             axlen = 1.01*self.L0
+            axlen = 0.4*self.L0
             ax.set_xlim(0,axlen)
             ax.set_ylim(-axlen/2,axlen/2)
             ax.set_zlim(-axlen/2,axlen/2)

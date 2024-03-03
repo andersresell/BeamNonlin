@@ -1,6 +1,6 @@
 #include "../include/Solver.hpp"
 
-void solve(Config &config, const Geometry &geometry)
+void solve(Config &config, const Geometry &geometry, const Borehole &borehole)
 {
 
     create_output_dir(config);
@@ -20,10 +20,12 @@ void solve(Config &config, const Geometry &geometry)
     assemble(config, geometry, beam_sys); //?
 
     Timer timer;
+
     timer.start_counter();
 
     for (Index n = 0; n <= n_steps; n++)
     {
+
         config.t = n * config.dt;
         config.n = n;
 
@@ -63,7 +65,7 @@ void solve(Config &config, const Geometry &geometry)
         //     beam_system.u[0].rot.from_matrix(T);
         //     beam_system.u[1].rot.from_matrix(U);
         // }
-        step_explicit(config, geometry, beam_sys);
+        step_explicit(config, geometry, borehole, beam_sys);
 
         // calculate internal loads
         // assemble(config, geometry, beam_system);
@@ -83,11 +85,14 @@ void solve(Config &config, const Geometry &geometry)
 
 void calc_dt(Config &config, const Geometry &geometry)
 {
+
     Scalar c = sqrt(config.E / config.rho); /*Speed of sound*/
     Scalar dx_min = std::numeric_limits<Scalar>::max();
     Scalar dt_min = std::numeric_limits<Scalar>::max();
+
     for (Index ie = 0; ie < geometry.get_Ne(); ie++)
     {
+
         Scalar dx = geometry.dx_e(ie);
         Scalar I = geometry.I_e(ie);
         Scalar A = geometry.A_e(ie);
@@ -99,6 +104,7 @@ void calc_dt(Config &config, const Geometry &geometry)
         dx_min = min(dx_min, dx);
         /*Testing the stability crit from table 6.1 in Belytscho*/
     }
+
     assert(dx_min > 0); // just a check
     assert(config.CFL < 1 && config.CFL > 0);
     config.dt = config.CFL * dt_min;
@@ -110,7 +116,7 @@ void calc_dt(Config &config, const Geometry &geometry)
          << "----------------------------------------------------------\n";
 }
 
-void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sys)
+void step_explicit(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys)
 {
     const Scalar dt = config.dt;
     const Index N = geometry.get_N();
@@ -170,7 +176,8 @@ void step_explicit(Config &config, const Geometry &geometry, BeamSystem &beam_sy
 
     if (rayleigh_damping_mass_enabled)
     {
-        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data());
+        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
+                                               J_u.data(), d_rot.data(), v_rot.data(), R_int_rot.data());
     }
     //////////
 

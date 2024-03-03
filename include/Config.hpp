@@ -19,6 +19,7 @@ struct Config
     Scalar energy_balance_tol;
     bool rayleigh_damping_mass_enabled;
     Scalar alpha_rayleigh;
+    bool borehole_included;
 
     bool gravity_enabled = true;
     Vec3 gravity_acc;

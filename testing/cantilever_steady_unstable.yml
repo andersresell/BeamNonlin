@@ -10,7 +10,6 @@ setup:
   check_energy_balance: true
   rayleigh_damping_mass_enabled: true
   alpha_rayleigh: 40
-  borehole_included: true
 
 bc: 
   case: "cantilever"
@@ -30,7 +29,7 @@ properties:
  
 geometry:
   L0: 10
-  N: 50
+  N: 100
   D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 

@@ -64,6 +64,7 @@ void InputParser::parse_yaml_config_options(Config &config) const
     {
         config.alpha_rayleigh = read_required_option<Scalar>(root_name_setup, "alpha_rayleigh");
     }
+    config.borehole_included = read_optional_option<bool>(root_name_setup, "borehole_included", false);
 
     config.gravity_enabled = read_required_option<bool>(root_name_setup, "gravity_enabled");
     if (config.gravity_enabled)

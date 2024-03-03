@@ -1,6 +1,7 @@
 
 #include "../include/Solver.hpp"
 #include "../include/InputParser.hpp"
+#include "../include/Borehole.hpp"
 
 inline void test_quat()
 {
@@ -143,7 +144,6 @@ int main(int argc, char *argv[])
         }
 
         string input_file = argv[1];
-
         Config config{};
 
         unique_ptr<Geometry> geometry;
@@ -153,6 +153,7 @@ int main(int argc, char *argv[])
             input_parser.create_geometry(geometry);
             input_parser.parse_bcs_and_loads(*geometry, config);
         }
+        unique_ptr<Borehole> borehole = make_unique<Borehole>(config, geometry->get_L0());
 
         omp_set_num_threads(config.n_threads);
         cout << "Running with " << config.n_threads << " threads\n";
@@ -160,8 +161,7 @@ int main(int argc, char *argv[])
         {
             printf("Hello from thread %i\n", omp_get_thread_num());
         }
-
-        solve(config, *geometry);
+        solve(config, *geometry, *borehole);
         exit(0);
     }
     catch (exception &e)

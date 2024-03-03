@@ -18,7 +18,7 @@ BUILD_DIR_DEBUG = $(BeamNonlinHome)/build_debug
 BUILD_DIR_RELEASE = $(BeamNonlinHome)/build_release
 
 
-CXX_FLAGS_COMMON = -Wall -Wno-unused-function -fmax-errors=1  -fopenmp -lyaml-cpp
+CXX_FLAGS_COMMON = -Wall -Wno-unused-function -fmax-errors=1 -lyaml-cpp -fopenmp
 CXX_FLAGS = $(CXX_FLAGS_COMMON)
 
 ifeq ($(BUILD_TYPE), debug)

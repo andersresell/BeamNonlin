@@ -5,6 +5,7 @@
         "*.ipp": "cpp",
         "array": "cpp",
         "string": "cpp",
-        "string_view": "cpp"
+        "string_view": "cpp",
+        "stdexcept": "cpp"
     }
 }

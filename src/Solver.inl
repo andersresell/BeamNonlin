@@ -2,8 +2,6 @@
 #pragma once
 #include "../include/Solver.hpp"
 
-
-
 inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
                                       const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
                                       Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
@@ -94,7 +92,26 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-#define MAX_ANGLE 5 * M_PI / 180
+#define MAX_ANGLE 15 * M_PI / 180
+    // if (abs(theta_l1) > MAX_ANGLE ||
+    //     abs(theta_l2) > MAX_ANGLE ||
+    //     abs(theta_l3) > MAX_ANGLE ||
+    //     abs(theta_l4) > MAX_ANGLE ||
+    //     abs(theta_l5) > MAX_ANGLE ||
+    //     abs(theta_l6) > MAX_ANGLE)
+    // {
+    //     printf("Angle larger than MAX_ANGLE = %f detected for element %i\n"
+    //            "Angles are\n:"
+    //            "theta_l1 = %f\n"
+    //            "theta_l2 = %f\n"
+    //            "theta_l3 = %f\n"
+    //            "theta_l4 = %f\n"
+    //            "theta_l5 = %f\n"
+    //            "theta_l6 = %f\n",
+    //            MAX_ANGLE, ie + 1,
+    //            theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
+    //     exit(0);
+    // }
     assert(abs(theta_l1) < MAX_ANGLE);
     assert(abs(theta_l2) < MAX_ANGLE);
     assert(abs(theta_l3) < MAX_ANGLE);
@@ -334,6 +351,7 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
 
 inline void assemble(const Config &config, const Geometry &geometry, BeamSystem &beam_system)
 {
+
     const Index N = geometry.get_N();
     const Index Ne = N - 1;
 
@@ -541,13 +559,23 @@ inline void rotate_moment_to_body_frame(Index N, const Quaternion *__restrict__ 
 }
 
 inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const Scalar *__restrict__ M,
-                                                   const Vec3 *__restrict__ v_trans, Vec3 *__restrict__ R_int_trans)
+                                                   const Vec3 *__restrict__ v_trans, Vec3 *__restrict__ R_int_trans,
+                                                   const Vec3 *__restrict__ J_u, const Quaternion *__restrict__ d_rot,
+                                                   const Vec3 *__restrict__ v_rot, Vec3 *__restrict__ R_int_rot)
 {
 #pragma omp parallel for
     for (Index i = 0; i < N; i++)
     {
         R_int_trans[i] += alpha * M[i] * v_trans[i];
     }
+    // Test with rotational dofs also?
+    // #pragma omp parallel for
+    //     for (Index i = 0; i < N; i++)
+    //     {
+    //         Vec3 R_damp_rot = alpha * J_u[i].array() * v_rot->array();
+    //         R_damp_rot = d_rot->rotate_vector(R_damp_rot);
+    //         R_int_rot[i] += R_damp_rot;
+    //     }
 }
 
 // inline void step_central_differences(Scalar dt, Index N, Vec3Quat *__restrict__ u, Vec3Vec3 *__restrict__ v,
@@ -645,6 +673,101 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
 //         // R[i].set_zero(); /*Setting the load vector to zero so it's ready for assembly in the next timestep*/
 //     }
 // }
+
+inline int is_node_within_hole_segment(Index i, const Vec3 &x_hole_A, const Vec3 &x_hole_B,
+                                       const Vec3 &X, const Vec3 &d_trans)
+{
+    const Vec3 t = (x_hole_B - x_hole_A).normalized();
+    const Vec3 x = X + d_trans;
+    const Scalar l_hole_seg = (x_hole_B - x_hole_A).norm();
+    const Scalar dist = (x - x_hole_A).dot(t);
+    const bool is_between = dist >= -SMALL_SCALAR && dist <= l_hole_seg + SMALL_SCALAR;
+    if (is_between)
+    {
+        return 0;
+    }
+    else if (dist < 0)
+    {
+        return -1;
+    }
+    else
+    {
+        assert(dist > 0);
+        return 1;
+    }
+}
+
+inline void update_hole_contact_indices(const Index N, const Vec3 *__restrict__ x_hole,
+                                        Index *__restrict__ hole_index, const Vec3 *__restrict__ X,
+                                        const Vec3 *__restrict__ d_trans)
+{
+    const Index Ne = N - 1;
+    /*Update hole indices*/
+    for (Index i = 0; i < N; i++)
+    {
+        int hi = hole_index[i];
+        int is_between = is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]);
+        if (is_between == 0)
+        {
+            continue;
+        }
+        else if (is_between == -1)
+        {
+            /*Search backwards*/
+            hi--;
+            assert(hi >= 0);
+            while (is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
+            {
+                assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == -1);
+                hi--;
+                assert(hi >= 0);
+            }
+            hole_index[i] = hi;
+        }
+        else
+        {
+            assert(is_between == 1);
+            /*Search forwards*/
+            hi++;
+            assert(hi < Ne);
+            while (is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
+            {
+                assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 1);
+                hi++;
+                assert(hi < Ne);
+            }
+            hole_index[i] = hi;
+        }
+    }
+}
+
+inline void calc_contact_forces(const Config &config, const Index N, const Vec3 *__restrict__ x_hole,
+                                Index *__restrict__ hole_index, const Scalar *__restrict__ r_hole,
+                                const Scalar *__restrict__ r_outer_string, const Vec3 *__restrict__ X,
+                                const Vec3 *__restrict__ d_trans, const Quaternion *__restrict__ d_rot,
+                                Vec3 *__restrict__ R_ext)
+{
+    update_hole_contact_indices(N, x_hole, hole_index, X, d_trans);
+    const Index Ne = N - 1;
+    for (Index i = 0; i < N; i++)
+    {
+        const Index hi = hole_index[i];
+        assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 0);
+        assert(hi < Ne);
+        const Vec3 &x = X[i] + d_trans[i];
+        const Vec3 &x_hole_A = x_hole[hi];
+        const Vec3 &x_hole_B = x_hole[hi + 1];
+        const Vec3 t = (x_hole_B - x_hole_A).normalized();
+        const Vec3 x_center = x_hole_A + (x - x_hole_A).dot(t) * t;
+        const Scalar d_center = (x - x_center).norm();
+        const Scalar delta = d_center + r_outer_string[i] - r_hole[i];
+        if (delta <= 0.0)
+        {
+            continue;
+        }
+        const Vec3 n = (x - x_center).normalized();
+    }
+}
 
 inline void set_simple_bc(BC_Case bc_case, const Geometry &geometry, BeamSystem &beam_system)
 {
