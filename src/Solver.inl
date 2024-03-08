@@ -6,7 +6,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
                                       const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
                                       Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
 {
-
+    debug_print(if (ie == 0) cout << "\n!!!!!!!!!!!! n = " << n_glob << " !!!!!!!!!!\n";);
     // if (n_glob == 2)
     // {
     //     int a = 1;
@@ -18,9 +18,13 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec3 &d1 = d_trans[ie];
     const Vec3 &d2 = d_trans[ie + 1];
 
-    // cout << "d1 " << d1.transpose() << endl;
-    // cout << "d2 " << d2.transpose() << endl;
+    debug_print(
+        cout << "X1 " << X1.transpose() << endl;
+        cout << "X2 " << X2.transpose() << endl;);
 
+    debug_print(
+        cout << "d1 " << d1.transpose() << endl;
+        cout << "d2 " << d2.transpose() << endl;);
     const Mat3 T = d_rot[ie].to_matrix();
     const Vec3 &t1 = T.col(0);
     const Vec3 &t2 = T.col(1);
@@ -31,18 +35,12 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec3 &u2 = U.col(1);
     const Vec3 &u3 = U.col(2);
 
-    // cout << "U from quat\n"
-    //      << U << endl;
+    debug_print(
+        cout << "U from quat\n"
+             << U << endl;
 
-    // cout << "u1 u2 u3\n"
-    //      << u1.transpose() << ",\n"
-    //      << u2.transpose() << ",\n"
-    //      << u3.transpose() << endl;
-
-    // cout << "t1 t2 t3\n"
-    //      << t1.transpose() << ",\n"
-    //      << t2.transpose() << ",\n"
-    //      << t3.transpose() << endl;
+        cout << "T from quat\n"
+             << T << endl;);
 
     // calculate the first unit vector
     const Scalar l0 = (X2 - X1).norm();
@@ -50,8 +48,8 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
 
     const Vec3 e1 = (X2 + d2 - (X1 + d1)) / ln;
     assert(is_close(e1.norm(), 1.0));
-
-    // cout << "e1 = " << e1.transpose() << endl;
+    debug_print(
+        cout << "e1 = " << e1.transpose() << endl;);
     // Calculate intermediate rotation between triads
     const Mat3 DeltaR = U * T.transpose();
     Quaternion qDeltaR;
@@ -59,6 +57,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec3 gamma_half = qDeltaR.q / qDeltaR.q0; // eq 16.34 divided by 2
     const Mat3 S = skew_symmetric(gamma_half);
     const Mat3 DeltaR_m = Mat3::Identity() + 1 / (1 + 0.25 * gamma_half.dot(gamma_half)) * (S + 0.5 * S * S);
+    assert(is_orthogonal(DeltaR_m));
     const Mat3 R_ = DeltaR_m * T;
     const Vec3 &r1 = R_.col(0);
     const Vec3 &r2 = R_.col(1);
@@ -70,10 +69,12 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     // r1 on to e1.
     const Vec3 e2 = r2 - r2.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
     const Vec3 e3 = r3 - r3.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
+    assert(is_close(e2.norm(), 1.0));
+    assert(is_close(e3.norm(), 1.0));
     // const Vec3 e3 = e1.cross(e2);
-    // cout << "e2 = " << e2.transpose() << endl;
-    // cout << "e3 = " << e3.transpose() << endl;
-
+    debug_print(
+        cout << "e2 = " << e2.transpose() << endl;
+        cout << "e3 = " << e3.transpose() << endl;);
     // compute local displacements from global displacements.
     // Taking u_l = ln-l0 is not recommended since subtracting two large
     // numbers may be inaccurate with limited precision. Better to adopt
@@ -92,28 +93,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-#define MAX_ANGLE 20 * M_PI / 180
-    // #define MAX_ANGLE 60 * M_PI / 180
-
-    // if (abs(theta_l1) > MAX_ANGLE ||
-    //     abs(theta_l2) > MAX_ANGLE ||
-    //     abs(theta_l3) > MAX_ANGLE ||
-    //     abs(theta_l4) > MAX_ANGLE ||
-    //     abs(theta_l5) > MAX_ANGLE ||
-    //     abs(theta_l6) > MAX_ANGLE)
-    // {
-    //     printf("Angle larger than MAX_ANGLE = %f detected for element %i\n"
-    //            "Angles are\n:"
-    //            "theta_l1 = %f\n"
-    //            "theta_l2 = %f\n"
-    //            "theta_l3 = %f\n"
-    //            "theta_l4 = %f\n"
-    //            "theta_l5 = %f\n"
-    //            "theta_l6 = %f\n",
-    //            MAX_ANGLE, ie + 1,
-    //            theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
-    //     exit(0);
-    // }
+#define MAX_ANGLE 85 * M_PI / 180
     assert(abs(theta_l1) < MAX_ANGLE);
     assert(abs(theta_l2) < MAX_ANGLE);
     assert(abs(theta_l3) < MAX_ANGLE);
@@ -200,55 +180,20 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec7 R_int_e_l = calc_element_forces_local(ri_e, ro_e, l0, E, G, ul,
                                                      theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
 
-    // cout << "R_int_l:\n"
-    //      << R_int_l << endl;
+    debug_print(
+        cout << "R_int_e_l:\n"
+             << R_int_e_l << endl;);
 
     const Vec12 R_int_e = F_transpose * R_int_e_l;
     assert(R_int_e.allFinite());
-    // cout << "R_int:\n"
-    //      << R_int << endl;
+    debug_print(
+        cout << "R_int_e:\n"
+             << R_int_e << endl;);
+    assert(is_close(theta_l2, 0, 1e-4));
+    assert(is_close(theta_l3, 0, 1e-4));
+    assert(is_close(theta_l5, 0, 1e-4));
+    assert(is_close(theta_l6, 0, 1e-4));
 
-    // Vec3 f1, m1;
-    // Vec3 f2, m2;
-
-    // calc_element_forces_local_TEST(ri_e, ro_e, l0, E, G, ul,
-    //                                theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6, f1, m1, f2, m2);
-    // Mat3 Etri;
-    // Etri.col(0) = e1;
-    // Etri.col(1) = e2;
-    // Etri.col(2) = e3;
-    // f1 = Etri * f1;
-    // f2 = Etri * f2;
-    // m1 = Etri * m1;
-    // m2 = Etri * m2;
-
-    // Vec12 R_rotated_eng;
-    // R_rotated_eng << f1, m1, f2, m2;
-
-    // cout << "R_int_e\n"
-    //      << R_int_e << endl;
-    // cout << "R_rotated_eng\n"
-    //      << R_rotated_eng << endl;
-
-    // Vec12 rel_diff_percent = 100 * (R_int_e - R_rotated_eng).array() / R_int_e.array();
-    // for (Index i = 0; i < 12; i++)
-    // {
-    //     if (!isnan(rel_diff_percent[i]) && R_int_e[i] > 100)
-    //     {
-    //         // printf("rel diff too big\n");
-
-    //         assert(abs(rel_diff_percent[i] < 1));
-    //     }
-    // }
-    // R_int_trans[ie] += f1;
-    // R_int_rot[ie] += m1;
-    // R_int_trans[ie + 1] += f2;
-    // R_int_rot[ie + 1] += m2;
-    // cout << "rel diff %\n"
-    //      << rel_diff_percent << endl;
-    /*R is the residual force moved to the right hand side. If we have:
-    M*a + R_int = R_ext, this is here instead handled as:
-    M*a = R, meaning that R_int has negative contributions to R*/
     R_int_trans[ie] += R_int_e.segment(0, 3);
     R_int_rot[ie] += R_int_e.segment(3, 3);
     R_int_trans[ie + 1] += R_int_e.segment(6, 3);
@@ -373,6 +318,8 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
         beam_system.R_ext_trans[i] = beam_system.R_static_trans[i];
         beam_system.R_ext_rot[i] = beam_system.R_static_rot[i];
     }
+    print_std_vector(beam_system.R_int_trans, "R int trans");
+    print_std_vector(beam_system.R_int_rot, "R int rot");
 
 #pragma omp parallel for
     for (Index ie = 0; ie < Ne; ie++)
@@ -465,12 +412,24 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
         for (Index i = 0; i < N; i++)
         {
             v_trans[i] += 0.5 * dt * (R_ext_trans[i] - R_int_trans[i]) / M[i];
+
+            debug_print(
+                if (i == 1) cout << "v_trans:\n"
+                                 << v_trans[i] << endl;);
         }
 #pragma omp for
         for (Index i = 0; i < N; i++)
         {
             /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
             const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
+
+            debug_print(if (i == 1) cout
+                        << "R_ext_rot\n"
+                        << R_ext_rot[i] << endl
+                        << "R_int_rot\n"
+                        << R_int_rot[i] << endl
+                        << "R_rot\n"
+                        << R_rot_u << endl);
             Vec3 &omega_u = v_rot[i];
             const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
             // Scalar tol = 0.00001;
@@ -481,6 +440,9 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
             //     assert(false);
             // }
             omega_u += 0.5 * dt * omega_u_dot;
+            debug_print(
+                if (i == 1) cout << "omega_u:\n"
+                                 << v_rot[i] << endl;);
             // if (n_glob == 10000 && i > 10)
             //     omega_u[0] = 0.1;
         }
@@ -496,6 +458,9 @@ inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, 
         for (Index i = 0; i < N; i++)
         {
             d_trans[i] += dt * v_trans[i];
+            debug_print(
+                if (i == 1) cout << "d_trans:\n"
+                                 << d_trans[i] << endl;);
         }
 #pragma omp for
         for (Index i = 0; i < N; i++)
@@ -510,10 +475,23 @@ inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, 
 
             Quaternion &q = d_rot[i];
             const Vec3 &omega_u = v_rot[i];
+
             const Vec3 omega = q.rotate_vector(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
+            // const Vec3 omega = q.rotate_vector_reversed(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
+
+            debug_print(if (i == 1)
+                            cout
+                        << "omega_u:\n"
+                        << omega_u << endl
+                        << "omega:\n"
+                        << omega << endl);
+            assert(is_close(omega_u.y(), 0, 1e-4) && is_close(omega_u.z(), 0, 1e-4));
             q.compound_rotate(dt * omega);
             Scalar norm = q.norm();
             assert(is_close(norm, 1.0));
+            debug_print(
+                if (i == 1) cout << "q_rot:\n"
+                                 << q.to_matrix() << endl);
         }
     }
 }

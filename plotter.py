@@ -103,7 +103,7 @@ class Plotter:
            
             plt.title("n="+str(n)+", t="+str(self.t)+", dt="+str(self.dt))
             
-            axlen = 1.01*self.L0
+            axlen = 1.2*self.L0
             #axlen = 0.7*self.L0
             ax.set_xlim(0,axlen)
             ax.set_ylim(-axlen/2,axlen/2)
@@ -192,12 +192,12 @@ class Plotter:
         plt.plot(t, KE_w_u_1, label="KE_w_u1")
         plt.plot(t, KE_w_u_2, label="KE_w_u2")
         plt.plot(t, KE_w_u_3, label="KE_w_u3")
-        plt.ylim([0, 0.001])
+        #plt.ylim([0, 0.001])
         plt.legend()
         plt.xlabel("t[s]")
         plt.ylabel("Specific kinetic energy")
         
-    def animate_omega_u_1(self):
+    def animate_omega_u(self):
         plt.figure()
         steps = np.arange(0,self.n_steps,self.n_write)
         i = np.arange(0,self.N,1)
@@ -205,12 +205,16 @@ class Plotter:
             self.read_header_transient(n)
             data = self.read_data(n)
             w_u_1 = data[:,18]
+            w_u_2 = data[:,19]
+            w_u_3 = data[:,20]
             #v_1 = data[:,15]
             plt.cla()
-            plt.plot(w_u_1,'.-')
+            plt.plot(w_u_1,'.-',label="omega_u_1")
+            plt.plot(w_u_2,'.-',label="omega_u_2")
+            plt.plot(w_u_3,'.-',label="omega_u_3")      
             #plt.plot(v_1,'.-')
             plt.xlabel("i")
-            plt.ylabel("omega_u_1")
+            plt.ylabel("omega_u [rad/s]")
             plt.title("t="+str(self.t))
             limval = 1
             limval=1000
@@ -284,5 +288,5 @@ if __name__ == "__main__":
     p.plot_energy_balance()
     #p.animate_vertical_disp()  
     p.animate_3d()
-   #p.animate_omega_u_1()
+    p.animate_omega_u()
     plt.show()

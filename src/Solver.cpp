@@ -20,7 +20,7 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
            "--------------------------------------------------------\n",
            config.dt, n_steps, config.dt * n_steps);
 
-    assemble(config, geometry, beam_sys); //?
+    // assemble(config, geometry, beam_sys); //?
 
     Timer timer;
 

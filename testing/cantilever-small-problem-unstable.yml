@@ -1,9 +1,9 @@
 setup:
   CFL: 0.9 # 1.917
-  n_max: 10000000
-  t_max:  3
-  n_write: 100
-  n_threads: 4
+  n_max: 1000000
+  t_max:  10
+  n_write: 100 # 200
+  n_threads: 1
   save_csv : true
   gravity_enabled: false
   #gravity_acc: [0, 3000,-3000]
@@ -21,7 +21,7 @@ loads:
   point_loads:
   # - R: [0,0,0, 0, 300000, -300000]
   #   rel_loc: 1
-   - R: [0, 0, 0,100000, 0, 0]
+   - R: [0, 0, 0,30000, 0, 0]
      rel_loc: 1
 
     
@@ -33,7 +33,7 @@ properties:
  
 geometry:
   L0: 10
-  N: 20
+  N: 2
   D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 

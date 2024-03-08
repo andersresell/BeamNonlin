@@ -30,6 +30,16 @@ using std::to_string;
 using std::unique_ptr;
 using std::vector;
 
+#define PRINT_DEBUG_MESSAGES 1
+
+#ifndef NDEBUG
+#ifdef PRINT_DEBUG_MESSAGES
+#define debug_print(arg) arg
+#endif
+#else
+#define debug_print(arg)
+#endif
+
 #ifndef _OPENMP
 #define omp_get_thread_num() 0
 #define omp_get_num_threads() 1
