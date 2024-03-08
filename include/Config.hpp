@@ -14,6 +14,7 @@ struct Config
     string base_dir;
     string output_dir;
     BC_Case bc_case = BC_Case::NONE;
+    Quaternion bc_orientation_base;
     vector<PointLoad> R_point_static;
     bool check_energy_balance;
     Scalar energy_balance_tol;

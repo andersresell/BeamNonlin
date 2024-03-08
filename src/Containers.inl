@@ -65,7 +65,7 @@ inline void Quaternion::from_matrix(const Mat3 &R)
         q2 = 0.25 * (R23 + R32) / q3;
     }
     assert(is_close(norm(), 1.0));
-    // this->normalize(); // perhaps not necessary
+    this->normalize(); // needed ?
 }
 
 inline Scalar Quaternion::norm() const

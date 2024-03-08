@@ -1,7 +1,7 @@
 setup:
-  CFL: 0.5
+  CFL: 0.9 # 1.917
   n_max: 10000000
-  t_max: 5
+  t_max:  3
   n_write: 100
   n_threads: 4
   save_csv : true
@@ -9,17 +9,18 @@ setup:
   gravity_acc: [0, 3000,-3000]
   check_energy_balance: true
   rayleigh_damping_mass_enabled: true
-  alpha_rayleigh: 40
+  alpha_rayleigh: 0 #40
   borehole_included: true
 
 bc: 
   case: "cantilever"
+  orientation_base_euler_angles_xyz_deg: [0, 0, 45]
   
 loads: 
   point_loads:
   - R: [0,0,0, 0, 300000, -300000]
     rel_loc: 1
-  #  - R: [0, 0, 0, 100000, 0, 0]
+  #  - R: [0, 0, 0,100000, 0, 0]
   #    rel_loc: 1
     
 

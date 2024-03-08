@@ -152,7 +152,7 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
                             R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
 
     /*Enforcing boundary conditions*/
-    set_simple_bc(config.bc_case, geometry, beam_sys);
+    set_simple_bc(config, geometry, beam_sys);
 
     /*Checking energy balance in two steps.
     The equation to be computed is W_{n+1} = W_n + delta_u/2*(Rn + R_{n+1})
@@ -196,7 +196,7 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
                             R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
 
     /*Enforcing boundary conditions*/
-    set_simple_bc(config.bc_case, geometry, beam_sys);
+    set_simple_bc(config, geometry, beam_sys);
 
     if (check_energy_balance)
     {

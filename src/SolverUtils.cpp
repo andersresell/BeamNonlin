@@ -62,6 +62,7 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
         from https://en.wikipedia.org/wiki/List_of_moments_of_inertia :
         */
         Scalar Je11 = rho * M_PI * dx / 2 * (pow(ro, 4) - pow(ri, 4));
+        // Je11 *= 30;
         Scalar Je22;
         // Je22 = rho * M_PI * dx / 12 * (3 * (pow(ro, 4) - pow(ri, 4)) + dx * dx * (ro * ro - ri * ri));
         Je22 = 1.0 / 12 * m * dx * dx; // Moment of inertia of thin rod. Using this instead of the exact moment of inertia as Belytscho does

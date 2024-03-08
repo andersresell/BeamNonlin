@@ -50,7 +50,7 @@ void InputParser::parse_yaml_config_options(Config &config) const
     string root_name_properties = "properties";
 
     config.n_max = read_required_option<size_t>(root_name_setup, "n_max");
-    config.t_max = read_required_option<size_t>(root_name_setup, "t_max");
+    config.t_max = read_required_option<Scalar>(root_name_setup, "t_max");
     config.CFL = read_required_option<Scalar>(root_name_setup, "CFL");
     config.save_csv = read_optional_option<bool>(root_name_setup, "save_csv", true);
     config.n_write = read_optional_option<Index>(root_name_setup, "n_write", 1);
@@ -111,6 +111,26 @@ void InputParser::parse_bcs_and_loads(const Geometry &geometry, Config &config) 
     try
     {
         config.bc_case = read_required_enum_option<BC_Case>(root_name_bc, "case", bc_case_from_string);
+        if (config.bc_case == BC_Case::CANTILEVER)
+        {
+
+            if (root_node[root_name_bc]["orientation_base_euler_angles_xyz_deg"])
+            {
+                vector<Scalar> orient_euler_deg = read_required_option<vector<Scalar>>(root_name_bc, "orientation_base_euler_angles_xyz_deg");
+                if (orient_euler_deg.size() != 3)
+                {
+                    throw runtime_error("Wrong size specified for the option: \"orientation_base_euler_angles_xyz_deg\", the size must be 3");
+                }
+                const Scalar theta_x = orient_euler_deg[0] * M_PI / 180;
+                const Scalar theta_y = orient_euler_deg[1] * M_PI / 180;
+                const Scalar theta_z = orient_euler_deg[2] * M_PI / 180;
+                config.bc_orientation_base.from_matrix(triad_from_euler_angles(theta_x, theta_y, theta_z));
+            }
+            else
+            {
+                config.bc_orientation_base.from_matrix(Mat3::Identity());
+            }
+        }
     }
     catch (exception &e)
     {

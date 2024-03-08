@@ -87,7 +87,7 @@ class Plotter:
             x = X+u
             assert self.N==x.shape[0]
             triads = data[:,6:15]
-            
+            100000000
             ax.cla()
             ax.plot3D(x[self.i_nodes,0],x[self.i_nodes,1],x[self.i_nodes,2],".-",color="black")
             
@@ -104,7 +104,7 @@ class Plotter:
             plt.title("n="+str(n)+", t="+str(self.t)+", dt="+str(self.dt))
             
             axlen = 1.01*self.L0
-            axlen = 0.4*self.L0
+            #axlen = 0.7*self.L0
             ax.set_xlim(0,axlen)
             ax.set_ylim(-axlen/2,axlen/2)
             ax.set_zlim(-axlen/2,axlen/2)
@@ -160,6 +160,63 @@ class Plotter:
             plt.xlabel("i")
             plt.ylabel("u3")
             plt.ylim([-self.L0/5,self.L0/5])
+            plt.pause(SMALL_VAL)
+
+    def plot_specific_kinetic_energy_component_wise(self):
+        steps = np.arange(0,self.n_steps,self.n_write)
+        t = np.zeros_like(steps, dtype=float)
+        KE_t = np.zeros_like(t)
+        KE_w_u = np.zeros_like(t)
+        KE_w_u_1 = np.zeros_like(t)
+        KE_w_u_2 = np.zeros_like(t)
+        KE_w_u_3 = np.zeros_like(t)
+        for i,n in enumerate(steps):
+            self.read_header_transient(n)
+            t[i] = self.t
+            data = self.read_data(n)
+            assert data.shape[1] == 21
+            v1 = data[:,15]
+            v2 = data[:,16]
+            v3 = data[:,17]
+            w_u_1 = data[:,18]
+            w_u_2 = data[:,19]
+            w_u_3 = data[:,20]
+            KE_t[i] = 0.5*np.sum(v1**2 + v2**2 + v3**2)
+            KE_w_u_1[i] = 0.5*np.sum(w_u_1**2)
+            KE_w_u_2[i] = 0.5*np.sum(w_u_2**2)
+            KE_w_u_3[i] = 0.5*np.sum(w_u_3**2)
+            KE_w_u[i] = KE_w_u_1[i] + KE_w_u_2[i] + KE_w_u_3[i]
+        plt.figure()
+        # plt.plot(t, KE_t, label="KE_t")
+        # plt.plot(t, KE_w_u, label="KE_w_u")
+        plt.plot(t, KE_w_u_1, label="KE_w_u1")
+        plt.plot(t, KE_w_u_2, label="KE_w_u2")
+        plt.plot(t, KE_w_u_3, label="KE_w_u3")
+        plt.ylim([0, 0.001])
+        plt.legend()
+        plt.xlabel("t[s]")
+        plt.ylabel("Specific kinetic energy")
+        
+    def animate_omega_u_1(self):
+        plt.figure()
+        steps = np.arange(0,self.n_steps,self.n_write)
+        i = np.arange(0,self.N,1)
+        for n in steps:
+            self.read_header_transient(n)
+            data = self.read_data(n)
+            w_u_1 = data[:,18]
+            #v_1 = data[:,15]
+            plt.cla()
+            plt.plot(w_u_1,'.-')
+            #plt.plot(v_1,'.-')
+            plt.xlabel("i")
+            plt.ylabel("omega_u_1")
+            plt.title("t="+str(self.t))
+            limval = 1
+            limval=1000
+            plt.ylim([-limval,limval])
+            plt.tight_layout()
+            #plt.ylim([-self.L0/5,self.L0/5])
             plt.pause(SMALL_VAL)
 
     def plot_energy_balance(self):
@@ -222,9 +279,10 @@ class Plotter:
 if __name__ == "__main__":
 
     p = Plotter("testing",write_gif=False)
-    p.plot_end_node_transient()
+    p.plot_specific_kinetic_energy_component_wise()
+    #p.plot_end_node_transient()
     p.plot_energy_balance()
     #p.animate_vertical_disp()  
-    p.animate_3d()
-    
+    #p.animate_3d()
+    p.animate_omega_u_1()
     plt.show()

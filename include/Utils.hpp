@@ -38,3 +38,5 @@ struct PointLoad
     Index i;
     PointLoad(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Vec3> &X);
 };
+
+Mat3 triad_from_euler_angles(Scalar theta_x, Scalar theta_y, Scalar theta_z);

@@ -144,6 +144,8 @@ int main(int argc, char *argv[])
         }
 
         string input_file = argv[1];
+        cout << "REMOVE!\n";
+        input_file = "cantilever-small-problem-unstable.yml";
         Config config{};
 
         unique_ptr<Geometry> geometry;

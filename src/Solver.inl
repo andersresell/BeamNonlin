@@ -92,7 +92,9 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-#define MAX_ANGLE 15 * M_PI / 180
+#define MAX_ANGLE 20 * M_PI / 180
+    // #define MAX_ANGLE 60 * M_PI / 180
+
     // if (abs(theta_l1) > MAX_ANGLE ||
     //     abs(theta_l2) > MAX_ANGLE ||
     //     abs(theta_l3) > MAX_ANGLE ||
@@ -278,8 +280,11 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
     I_p * rho * phitors_tt = G * K * phitors_xx
     --------------------------------------------------------------------*/
     const Scalar K = J; // cicular cross-section
-    const Scalar M1 = G * K * (theta_1l - theta_4l) / l0;
-    const Scalar M4 = -M1;
+    Scalar M1 = G * K * (theta_1l - theta_4l) / l0;
+    Scalar M4 = -M1;
+
+    // M1*=-1;
+    // M4*=-1;
 
     /*Bending: Euler bernoulli with only angle dofs:
     k = EI/L [[4 2],
@@ -391,7 +396,8 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
         }
     }
 
-    /*--------------------------------------------------------------------
+    /*------------------------------------------  # - R: [0,0,0, 0, 600000, 0]
+  #   rel_loc: 1--------------------------
     To avoid race conditions the following pattern is used to compute and
     assemble the internal forces:
 
@@ -465,9 +471,18 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
         {
             /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
             const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
-            const Vec3 &omega_u = v_rot[i];
+            Vec3 &omega_u = v_rot[i];
             const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
-            v_rot[i] += 0.5 * dt * omega_u_dot;
+            // Scalar tol = 0.00001;
+            // if (i != 0 && abs(omega_u[0]) > tol)
+            // {
+            //     cout << "omega_u \n"
+            //          << omega_u << endl;
+            //     assert(false);
+            // }
+            omega_u += 0.5 * dt * omega_u_dot;
+            // if (n_glob == 10000 && i > 10)
+            //     omega_u[0] = 0.1;
         }
     }
 }
@@ -486,15 +501,19 @@ inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, 
         for (Index i = 0; i < N; i++)
         {
             // Mat3 U = d_rot[i].to_matrix();
-            // U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(v[i].rot)).inverse() *
-            //     (Mat3::Identity() + 0.5 * dt * skew_symmetric(v[i].rot));
+            // U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(v_rot[i])).inverse() *
+            //     (Mat3::Identity() + 0.5 * dt * skew_symmetric(v_rot[i]));
             // assert(U.allFinite());
+            // assert(is_orthogonal(U));
             // d_rot[i].from_matrix(U);
+            // assert(is_close(d_rot[i].norm(), 1.0));
 
             Quaternion &q = d_rot[i];
             const Vec3 &omega_u = v_rot[i];
             const Vec3 omega = q.rotate_vector(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
             q.compound_rotate(dt * omega);
+            Scalar norm = q.norm();
+            assert(is_close(norm, 1.0));
         }
     }
 }
@@ -572,8 +591,14 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     // #pragma omp parallel for
     //     for (Index i = 0; i < N; i++)
     //     {
-    //         Vec3 R_damp_rot = alpha * J_u[i].array() * v_rot->array();
+    //         alpha = 10000;
+    //         Vec3 R_damp_rot = alpha * J_u[i].array() * v_rot[i].array();
     //         R_damp_rot = d_rot->rotate_vector(R_damp_rot);
+    //         if (i == 10 && n_glob % 100 == 0)
+    //         {
+    //             cout << "M_w_1 prior: " << R_int_rot[i].x() << endl;
+    //             cout << "M damp w_1: " << R_damp_rot.x() << endl;
+    //         }
     //         R_int_rot[i] += R_damp_rot;
     //     }
 }
@@ -748,6 +773,7 @@ inline void calc_contact_forces(const Config &config, const Index N, const Vec3 
                                 Vec3 *__restrict__ R_ext)
 {
     update_hole_contact_indices(N, x_hole, hole_index, X, d_trans);
+
     const Index Ne = N - 1;
     for (Index i = 0; i < N; i++)
     {
@@ -769,7 +795,7 @@ inline void calc_contact_forces(const Config &config, const Index N, const Vec3 
     }
 }
 
-inline void set_simple_bc(BC_Case bc_case, const Geometry &geometry, BeamSystem &beam_system)
+inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam_system)
 {
     Index N = geometry.get_N();
 
@@ -780,14 +806,15 @@ inline void set_simple_bc(BC_Case bc_case, const Geometry &geometry, BeamSystem 
 
     assert(N == d_trans.size() && N == d_rot.size() && N == v_trans.size() && N == v_rot.size());
 
-    switch (bc_case)
+    switch (config.bc_case)
     {
     case BC_Case::NONE:
         return;
     case BC_Case::CANTILEVER:
         d_trans[0] = {0, 0, 0};
         v_trans[0] = {0, 0, 0};
-        d_rot[0].from_matrix(Mat3::Identity());
+        // d_rot[0].from_matrix();
+        d_rot[0] = config.bc_cantilever_orientation;
         v_rot[0] = {0, 0, 0};
         break;
     case BC_Case::SIMPLY_SUPPORTED:

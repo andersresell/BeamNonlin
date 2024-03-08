@@ -62,7 +62,7 @@ int sign(T val)
 
 inline bool is_close(Scalar a, Scalar b, Scalar tol = SMALL_SCALAR)
 {
-    const Scalar scaled_tol = tol * max(1.0, max(abs(a), abs(b))); // Need to scale the tolerance so that it work for numbers of various sizes
+    const Scalar scaled_tol = tol * max((Scalar)1.0, max(abs(a), abs(b))); // Need to scale the tolerance so that it work for numbers of various sizes
     // assert(abs(b - a) <= scaled_tol);
     return abs(b - a) <= scaled_tol;
 }

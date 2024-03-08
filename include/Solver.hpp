@@ -36,7 +36,7 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
 void calc_static_loads(const Config &config, const Geometry &geometry,
                        vector<Vec3> &R_static_trans, vector<Vec3> &R_static_rot);
 
-inline void set_simple_bc(BC_Case bc_case, const Geometry &geometry, BeamSystem &beam_system);
+inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam_system);
 
 inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
                                     const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
