@@ -16,6 +16,7 @@ public:
     Geometry(Scalar L0, Scalar N, Scalar D_outer_uniform, Scalar D_inner_uniform);
 
     const vector<Vec3> &get_X() const { return X; }
+    vector<Vec3> &get_X() { return X; }
     const vector<Scalar> &get_ro() const { return ro; }
     const vector<Scalar> &get_ri() const { return ri; }
 

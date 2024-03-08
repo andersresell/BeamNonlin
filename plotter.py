@@ -283,6 +283,6 @@ if __name__ == "__main__":
     #p.plot_end_node_transient()
     p.plot_energy_balance()
     #p.animate_vertical_disp()  
-    #p.animate_3d()
-    p.animate_omega_u_1()
+    p.animate_3d()
+   #p.animate_omega_u_1()
     plt.show()

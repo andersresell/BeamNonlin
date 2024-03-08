@@ -814,7 +814,7 @@ inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSy
         d_trans[0] = {0, 0, 0};
         v_trans[0] = {0, 0, 0};
         // d_rot[0].from_matrix();
-        d_rot[0] = config.bc_cantilever_orientation;
+        d_rot[0] = config.bc_orientation_base;
         v_rot[0] = {0, 0, 0};
         break;
     case BC_Case::SIMPLY_SUPPORTED:

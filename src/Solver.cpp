@@ -1,10 +1,13 @@
 #include "../include/Solver.hpp"
 
-void solve(Config &config, const Geometry &geometry, const Borehole &borehole)
+void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 {
 
     create_output_dir(config);
     BeamSystem beam_sys{config, geometry};
+
+    set_initial_configuration(config, geometry.get_X(), beam_sys.d_trans, beam_sys.d_rot);
+
     calc_dt(config, geometry);
     const Index n_steps = config.get_n_steps();
 
@@ -235,10 +238,12 @@ void calc_static_loads(const Config &config, const Geometry &geometry,
     }
 
     /*Point loads*/
+    /*If specified the point loads will be applied relative to the fixed orientation of the first node (typically cantilever case)*/
+    Mat3 R_base = config.point_loads_rel_to_base_orientation ? config.bc_orientation_base.to_matrix() : Mat3::Identity();
     for (const PointLoad &pl : config.R_point_static)
     {
-        R_static_trans[pl.i] += pl.load_trans;
-        R_static_rot[pl.i] += pl.load_rot;
+        R_static_trans[pl.i] += R_base * pl.load_trans;
+        R_static_rot[pl.i] += R_base * pl.load_rot;
     }
 }
 
@@ -335,4 +340,23 @@ inline void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar 
     m2.x() = M4;
     m2.y() = -M6;
     m2.z() = M5;
+}
+
+void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans, vector<Quaternion> &d_rot)
+{
+
+    assert(X.size() == d_trans.size() && X.size() == d_rot.size());
+    if (config.bc_case == BC_Case::CANTILEVER)
+    {
+        /*Rotate the reference configuration rigidly so that it matches The orientation at the base. Also set all
+        rotations equal to the base rotation*/
+        const Quaternion &q_base = config.bc_orientation_base;
+        const Mat3 R = q_base.to_matrix();
+        assert(X[0].isApprox(Vec3::Zero()));
+        for (Index i = 0; i < X.size(); i++)
+        {
+            X[i] = R * X[i];
+            d_rot[i] = q_base;
+        }
+    }
 }

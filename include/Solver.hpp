@@ -5,7 +5,9 @@
 #include "SolverUtils.hpp"
 #include "Borehole.hpp"
 
-void solve(Config &config, const Geometry &geometry, const Borehole &borehole);
+void solve(Config &config, Geometry &geometry, const Borehole &borehole);
+
+void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans, vector<Quaternion> &d_rot);
 
 void calc_dt(Config &config, const Geometry &geometry);
 

@@ -146,6 +146,7 @@ void InputParser::parse_bcs_and_loads(const Geometry &geometry, Config &config) 
             Scalar rel_loc;
             for (const auto &point_load : point_loads)
             {
+                config.point_loads_rel_to_base_orientation = read_optional_option<bool>(root_name_loads, "point_loads_rel_to_base_orientation", false);
                 if (point_load["R"] && point_load["rel_loc"])
                 {
                     R_point_tmp = point_load["R"].as<vector<Scalar>>();

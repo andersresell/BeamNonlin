@@ -16,6 +16,7 @@ struct Config
     BC_Case bc_case = BC_Case::NONE;
     Quaternion bc_orientation_base;
     vector<PointLoad> R_point_static;
+    bool point_loads_rel_to_base_orientation;
     bool check_energy_balance;
     Scalar energy_balance_tol;
     bool rayleigh_damping_mass_enabled;

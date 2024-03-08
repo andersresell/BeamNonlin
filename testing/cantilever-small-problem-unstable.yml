@@ -6,7 +6,7 @@ setup:
   n_threads: 4
   save_csv : true
   gravity_enabled: false
-  gravity_acc: [0, 3000,-3000]
+  #gravity_acc: [0, 3000,-3000]
   check_energy_balance: true
   rayleigh_damping_mass_enabled: true
   alpha_rayleigh: 0 #40
@@ -16,12 +16,14 @@ bc:
   case: "cantilever"
   orientation_base_euler_angles_xyz_deg: [0, 0, 45]
   
-loads: 
+loads:
+  point_loads_rel_to_base_orientation: true
   point_loads:
-  - R: [0,0,0, 0, 300000, -300000]
-    rel_loc: 1
-  #  - R: [0, 0, 0,100000, 0, 0]
-  #    rel_loc: 1
+  # - R: [0,0,0, 0, 300000, -300000]
+  #   rel_loc: 1
+   - R: [0, 0, 0,100000, 0, 0]
+     rel_loc: 1
+
     
 
 properties:
