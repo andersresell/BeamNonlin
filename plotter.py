@@ -252,6 +252,8 @@ class Plotter:
         plt.plot(t,W_int,label="W_int")
         plt.plot(t,W_ext,label="W_ext")
         plt.plot(t,E_tot,label="E_tot")
+        lim=20000
+        plt.ylim(-lim/2,lim/2)
         plt.legend()
         plt.xlabel("$t$")
         plt.ylabel("Energy $[J]$")
@@ -288,5 +290,5 @@ if __name__ == "__main__":
     p.plot_energy_balance()
     #p.animate_vertical_disp()  
     p.animate_3d()
-    p.animate_omega_u()
+    #p.animate_omega_u()
     plt.show()

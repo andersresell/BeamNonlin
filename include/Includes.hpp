@@ -34,10 +34,10 @@ using std::vector;
 
 #ifndef NDEBUG
 #ifdef PRINT_DEBUG_MESSAGES
-#define debug_print(arg) arg
+#define DEBUG_ONLY(arg) arg
 #endif
 #else
-#define debug_print(arg)
+#define DEBUG_ONLY(arg)
 #endif
 
 #ifndef _OPENMP

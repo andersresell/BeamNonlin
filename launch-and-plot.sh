@@ -1,6 +1,7 @@
 #!/bin/bash
 clear
-./launch.sh
+
+./launch.sh 
 
 if [ $? -eq 0 ]; then
     echo "simulation returned without errors"

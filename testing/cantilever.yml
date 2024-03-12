@@ -2,8 +2,8 @@ setup:
   CFL: 0.5
   n_max: 10000000
   t_max: 5
-  n_write: 100
-  n_threads: 4
+  n_write: 1000
+  n_threads: 1
   save_csv : true
   gravity_enabled: false
   gravity_acc: [0, 3000,-3000]

@@ -48,26 +48,41 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
         // save output
         save_csv(config, geometry, beam_sys);
 
-        // bool set_disp = false;
+        // Debug stuff
+        constexpr bool set_disp = true;
+        if (set_disp && n == 0)
+        {
+            Index N = geometry.get_N();
+            cout << "SETTING DISP!\n";
+            Scalar u_new = -1.0 * (n + 1) * 0.3;
+            assert(geometry.get_N() == 2);
+            // beam_system.u[1].trans = {0, u_new, 0};
 
-        // if (set_disp)
-        // {
-        //     Scalar u_new = -1.0 * (n + 1) * 0.3;
-        //     assert(geometry.get_N() == 2);
-        //     // beam_system.u[1].trans = {0, u_new, 0};
+            Scalar theta = 1 * M_PI / 180; // 1 deg
+            Scalar c = cos(theta);
+            Scalar s = sin(theta);
 
-        //     Scalar theta = 1 * M_PI / 180; // 1 deg
-        //     Scalar c = cos(theta);
-        //     Scalar s = sin(theta);
-        //     Mat3 T;
-        //     T << c, 0, -s,
-        //         0, 1, 0,
-        //         s, 0, c;
-        //     Mat3 U = Mat3::Identity();
+            // set external forces to zero
+            for (Index i = 0; i < N; i++)
+            {
+                beam_sys.R_ext_rot[i].setZero();
+                beam_sys.R_ext_trans[i].setZero();
+                beam_sys.R_static_rot[i].setZero();
+                beam_sys.R_static_trans[i].setZero();
+            }
 
-        //     beam_system.u[0].rot.from_matrix(T);
-        //     beam_system.u[1].rot.from_matrix(U);
-        // }
+            Mat3 U = Mat3::Identity();
+            Mat3 T = U;
+            // Mat3 T = triad_from_euler_angles(20 * M_PI / 180, 0, 45 * M_PI / 180, "xyz");
+
+            beam_sys.d_trans[0] = Vec3{0, 0, 0};
+            beam_sys.d_trans[1] = Vec3{0, 0, 1};
+            beam_sys.d_rot[0].from_matrix(U);
+            beam_sys.d_rot[N - 1].from_matrix(T);
+            beam_sys.v_rot[0] = Vec3::Zero();
+            beam_sys.v_rot[N - 1] = Vec3::Zero();
+        }
+
         step_explicit(config, geometry, borehole, beam_sys);
 
         // calculate internal loads

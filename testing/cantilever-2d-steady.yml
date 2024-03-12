@@ -1,0 +1,40 @@
+setup:
+  CFL: 0.5
+  n_max: 10000000
+  t_max: 5
+  n_write: 100
+  n_threads: 4
+  save_csv : true
+  gravity_enabled: false
+  gravity_acc: [0, 3000,-3000]
+  check_energy_balance: true
+  rayleigh_damping_mass_enabled: true
+  alpha_rayleigh: 40
+  borehole_included: true
+
+bc: 
+  case: "cantilever"
+  
+loads: 
+  point_loads:
+  - R: [0,0,0, 0, 424264, 0]
+    rel_loc: 1
+  #  - R: [0, 0, 0, 100000, 0, 0]
+  #    rel_loc: 1
+    
+
+properties:
+  E: 200.0e+09
+  nu: 0.3
+  rho: 7000
+ 
+geometry:
+  L0: 10
+  N: 20
+  D_outer_uniform: 0.1
+  D_inner_uniform: 0.05
+
+
+
+  
+

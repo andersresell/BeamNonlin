@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 clear
 source build.sh
 
@@ -19,7 +20,15 @@ fi
 
 simdir=$BeamNonlinHome/testing 
 cd $simdir
-$builddir/BeamNonlin cantilever.yml #> $BeamNonlinHome/console_output.txt
+
+input_file=cantilever-2d-steady.yml
+input_file=cantilever.yml
+input_file=cantilever-small-problem-unstable.yml
+
+input_file=cantilever-2d-small.yml
+
+
+$builddir/BeamNonlin $input_file #> $BeamNonlinHome/console_output.txt
 
 # echo "Writing profiling output.."
 # gprof $builddir/BeamNonlin gmon.out | gprof2dot -w -s | dot -Gdpi=200 -Tpng -o profiling_output.png

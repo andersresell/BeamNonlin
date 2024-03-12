@@ -51,7 +51,7 @@ PointLoad::PointLoad(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Ve
     }
 }
 
-Mat3 triad_from_euler_angles(Scalar theta_x, Scalar theta_y, Scalar theta_z)
+Mat3 triad_from_euler_angles(Scalar theta_x, Scalar theta_y, Scalar theta_z, string order)
 {
     Scalar c, s;
     c = cos(theta_x);
@@ -69,8 +69,19 @@ Mat3 triad_from_euler_angles(Scalar theta_x, Scalar theta_y, Scalar theta_z)
     Mat3 Uz = Mat3{{c, -s, 0},
                    {s, c, 0},
                    {0, 0, 1}};
-
-    Mat3 U = Uz * Uy * Ux;
+    Mat3 U;
+    if (order == "xyz")
+    {
+        U = Uz * Uy * Ux;
+    }
+    else if (order == "zyx")
+    {
+        U = Ux * Uy * Uz;
+    }
+    else
+    {
+        assert(false);
+    }
     assert(is_orthogonal(U));
     return U;
 }

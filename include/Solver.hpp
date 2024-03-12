@@ -22,9 +22,9 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
                                                    const Vec3 *__restrict__ J_u, const Quaternion *__restrict__ d_rot,
                                                    const Vec3 *__restrict__ v_rot, Vec3 *__restrict__ R_int_rot);
 
-inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
-                                      const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
-                                      Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G);
+inline void calc_element_inner_forces_crisfield(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
+                                                const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
+                                                Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G);
 
 inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
                                       Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,

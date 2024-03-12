@@ -2,11 +2,158 @@
 #pragma once
 #include "../include/Solver.hpp"
 
-inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
-                                      const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
-                                      Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
+#define calc_element_inner_forces calc_element_inner_forces_crisfield
+
+inline void calc_element_inner_forces_battini(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
+                                              const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
+                                              Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar youngs, Scalar G)
 {
-    debug_print(if (ie == 0) cout << "\n!!!!!!!!!!!! n = " << n_glob << " !!!!!!!!!!\n";);
+    DEBUG_ONLY(cout << "!!!!!!!!!!!!BATTINI!!!!!!!!!!\n");
+    const Vec3 &X1 = X[ie];
+    const Vec3 &X2 = X[ie + 1];
+    const Vec3 &u1 = d_trans[ie];
+    const Vec3 &u2 = d_trans[ie + 1];
+    const Mat3 Rg1 = d_rot[ie].to_matrix();
+    const Mat3 Rg2 = d_rot[ie + 1].to_matrix();
+
+    const Scalar ln = (X2 + u2 - X1 - u1).norm();
+    const Scalar l0 = (X2 - X1).norm();
+
+    /*Create element frame*/
+    const Vec3 e1 = (X2 + u2 - X1 - u1) / ln;
+    const Vec3 q1 = Rg1 * Vec3{0, 1, 0};
+    const Vec3 q2 = Rg2 * Vec3{0, 1, 0};
+    const Vec3 q = 0.5 * (q1 + q2);
+    const Vec3 e3 = (e1.cross(q)).normalized();
+    const Vec3 e2 = e3.cross(e1);
+    assert(is_close(e1.norm(), 1.0));
+    assert(is_close(e3.norm(), 1.0) && is_close(e3.dot(e1), 0.0));
+    assert(is_close(e2.norm(), 1.0) && is_close(e2.dot(e1), 0.0));
+    Mat3 Rr;
+    Rr << e1, e2, e3;
+    DEBUG_ONLY(
+        cout << "e1 = " << e1.transpose() << endl;
+        cout << "e2 = " << e2.transpose() << endl;
+        cout << "e3 = " << e3.transpose() << endl;);
+
+    const Scalar ul = ln - l0;
+
+    const Mat3 Rl1 = Rr.transpose() * Rg1;
+    const Mat3 Rl2 = Rr.transpose() * Rg2;
+
+    // Goal is to compute log(R).
+    // we have R = exp(S(theta)), so log(R) = S(theta)?
+    // I think I should use spurriers algorithm to extract a quaternion from R. And then extract the pseudo vector?
+    Quaternion ql1, ql2;
+    ql1.from_matrix(Rl1);
+    ql2.from_matrix(Rl2);
+    // omega = 2*q/q0
+    const Vec3 theta_l1 = 2 * ql1.q / ql1.q0; // remember that omega = 2*tan(theta/2) is a very good approximation to theta for small angles
+    const Vec3 theta_l2 = 2 * ql2.q / ql2.q0; // remember that omega = 2*tan(theta/2) is a very good approximation to theta for small angles
+    constexpr Scalar THETA_MAX = 10 * M_PI / 180;
+    assert(theta_l1.norm() < THETA_MAX);
+    assert(theta_l2.norm() < THETA_MAX);
+    DEBUG_ONLY(
+        cerr << "theta_l1 = " << theta_l1.transpose() << endl;
+        cerr << "theta_l2 = " << theta_l2.transpose() << endl;);
+
+#ifndef NDEBUG
+    // checking if the above corresponds with alternate definition (16.8 crisfield) allowed for 0 < |theta| <pi
+    // checking for the first node:
+    {
+        Mat3 R = Rl1;
+        Vec3 sin_theta_e = 0.5 * Vec3(R(2, 1) - R(1, 2), R(0, 2) - R(2, 0), R(1, 0) - R(0, 1));
+        Vec3 theta = sin_theta_e; // sin(theta)/theta are close for small angles
+        cerr << "theta check " << theta << endl;
+        assert(theta.isApprox(theta_l1, 1e-2));
+    }
+#endif
+
+    // inverse transformation matrix
+    Mat3 Ts_inv1, Ts_inv2;
+    {
+        Vec3 theta_pseudo = theta_l1;
+        Scalar theta = theta_pseudo.norm();
+        Vec3 e = theta_pseudo.normalized();
+        Ts_inv1 = (theta / 2) / tan(theta / 2) * Mat3::Identity() + (1 - (theta / 2) / tan(theta / 2)) * e * e.transpose() - 0.5 * skew_symmetric(theta_pseudo);
+
+        theta_pseudo = theta_l1;
+        theta = theta_pseudo.norm();
+        e = theta_pseudo.normalized();
+        Ts_inv2 = (theta / 2) / tan(theta / 2) * Mat3::Identity() + (1 - (theta / 2) / tan(theta / 2)) * e * e.transpose() - 0.5 * skew_symmetric(theta_pseudo);
+    }
+    DEBUG_ONLY(cout << "Ts_inv1\n"
+                    << Ts_inv1 << endl
+                    << "Ts_inv2\n"
+                    << Ts_inv2 << endl;)
+
+    using Mat7 = Eigen::Matrix<Scalar, 7, 7>;
+    Mat7 Bl;
+    Bl(0, 0) = 1;
+    Bl.block<3, 3>(1, 1) = Ts_inv1;
+    Bl.block<3, 3>(4, 4) = Ts_inv2;
+    DEBUG_ONLY(cout << "Bl\n"
+                    << Bl << endl;)
+
+    using Vec12 = Eigen::Vector<Scalar, 12>;
+    Vec12 r_T;
+    r_T << -e1, Vec3::Zero(), e1, Vec3::Zero();
+    using Mat12 = Eigen::Matrix<Scalar, 12, 12>;
+    Mat12 E;
+    E.block<3, 3>(0, 0) = Rr;
+    E.block<3, 3>(3, 3) = Rr;
+    E.block<3, 3>(6, 6) = Rr;
+    E.block<3, 3>(9, 9) = Rr;
+
+    Eigen::Matrix<Scalar, 3, 12> G_T;
+    {
+        const Vec3 _q = Rr.transpose() * q;
+        const Vec3 _q1 = Rr.transpose() * q1;
+        const Vec3 _q2 = Rr.transpose() * q2;
+
+        const Scalar eta = _q.x() / _q.y();
+        const Scalar eta11 = _q1.x() / _q.y();
+        const Scalar eta12 = _q1.y() / _q.y();
+        const Scalar eta21 = _q2.x() / _q.y();
+        const Scalar eta22 = _q2.y() / _q.y();
+        G_T << 0, 0, eta / ln, eta12 / 2, -eta11 / 2, 0, 0, 0, -eta / ln, eta22 / 2, -eta21 / 2, 0,
+            0, 0, 1 / ln, 0, 0, 0, 0, 0, -1 / ln, 0, 0, 0,
+            0, -1 / ln, 0, 0, 0, 0, 0, 1 / ln, 0, 0, 0, 0;
+    }
+
+    Eigen::Matrix<Scalar, 6, 12> P;
+    P.setZero();
+    P.block<3, 3>(0, 3) = Mat3::Identity();
+    P.block<3, 3>(3, 9) = Mat3::Identity();
+    P.block<3, 12>(0, 0) -= G_T;
+    P.block<3, 12>(3, 0) -= G_T;
+
+    Eigen::Matrix<Scalar, 7, 12> Ba;
+    Ba.block<1, 12>(0, 0) = r_T;
+    Ba.block<6, 12>(1, 0) = P * E.transpose();
+
+    // Check this!!
+    const Vec7 fl = calc_element_forces_local(ri_e, ro_e, l0, youngs, G, ul, theta_l1.x(), theta_l1.z(), -theta_l1.y(), theta_l2.x(), theta_l2.z(), -theta_l2.y());
+
+    const Vec12 fg = Ba.transpose() * Bl.transpose() * fl;
+
+    DEBUG_ONLY(cerr << "fl:\n"
+                    << fl << endl;
+               cerr << "fg:\n"
+                    << fg << endl;)
+    // R_int_trans[ie] += fg.segment(0, 3);
+    // R_int_rot[ie] += fg.segment(3, 3);
+    // R_int_trans[ie + 1] += fg.segment(6, 3);
+    // R_int_rot[ie + 1] += fg.segment(9, 3);
+    int a = 1;
+}
+
+inline void calc_element_inner_forces_crisfield(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
+                                                const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
+                                                Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
+{
+    DEBUG_ONLY(cout << "!!!!!!!!!!!CRISFIELD!!!!!!!\n");
+    DEBUG_ONLY(if (ie == 0) cout << "\n!!!!!!!!!!!! n = " << n_glob << " !!!!!!!!!!\n";);
     // if (n_glob == 2)
     // {
     //     int a = 1;
@@ -18,11 +165,11 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec3 &d1 = d_trans[ie];
     const Vec3 &d2 = d_trans[ie + 1];
 
-    debug_print(
+    DEBUG_ONLY(
         cout << "X1 " << X1.transpose() << endl;
         cout << "X2 " << X2.transpose() << endl;);
 
-    debug_print(
+    DEBUG_ONLY(
         cout << "d1 " << d1.transpose() << endl;
         cout << "d2 " << d2.transpose() << endl;);
     const Mat3 T = d_rot[ie].to_matrix();
@@ -35,7 +182,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec3 &u2 = U.col(1);
     const Vec3 &u3 = U.col(2);
 
-    debug_print(
+    DEBUG_ONLY(
         cout << "U from quat\n"
              << U << endl;
 
@@ -48,13 +195,15 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
 
     const Vec3 e1 = (X2 + d2 - (X1 + d1)) / ln;
     assert(is_close(e1.norm(), 1.0));
-    debug_print(
+    DEBUG_ONLY(
         cout << "e1 = " << e1.transpose() << endl;);
     // Calculate intermediate rotation between triads
     const Mat3 DeltaR = U * T.transpose();
     Quaternion qDeltaR;
     qDeltaR.from_matrix(DeltaR);
+    assert(!is_close(qDeltaR.q0, 0.0, 0.1));        // if q0 is 0, gamma_half becomes singular
     const Vec3 gamma_half = qDeltaR.q / qDeltaR.q0; // eq 16.34 divided by 2
+
     const Mat3 S = skew_symmetric(gamma_half);
     const Mat3 DeltaR_m = Mat3::Identity() + 1 / (1 + 0.25 * gamma_half.dot(gamma_half)) * (S + 0.5 * S * S);
     assert(is_orthogonal(DeltaR_m));
@@ -62,23 +211,38 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec3 &r1 = R_.col(0);
     const Vec3 &r2 = R_.col(1);
     const Vec3 &r3 = R_.col(2);
-    // cout << "R_\n"
-    //      << R_ << endl;
 
     // computing element unit vectors e2 and e3 by rotating the unit vector
     // r1 on to e1.
-    const Vec3 e2 = r2 - r2.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
-    const Vec3 e3 = r3 - r3.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
-    assert(is_close(e2.norm(), 1.0));
-    assert(is_close(e3.norm(), 1.0));
+    // const Vec3 e2 = r2 - r2.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
+    // const Vec3 e3 = r3 - r3.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
+
+    //    cout << "r1.dot.e1 " << e1.dot(r1) << endl;
+    const Vec3 e2 = r2 - 0.5 * r2.dot(e1) * (e1 + r1);
+    const Vec3 e3 = r3 - 0.5 * r3.dot(e1) * (e1 + r1);
+
     // const Vec3 e3 = e1.cross(e2);
-    debug_print(
+
+    Scalar th = 2 * acos(qDeltaR.q0);
+    Vec3 Om = 2 * qDeltaR.q / qDeltaR.q0;
+    Vec3 Om_half = Om / 2;
+    Scalar om_half = Om_half.norm();
+    Scalar th_half = 2 * atan(om_half / 2);
+    DEBUG_ONLY(
+        cout << "th half " << th_half * 180 / M_PI << endl;
+        cout << "q_DeltaR " << qDeltaR << endl;
+        cout << "DeltaR_m \n"
+             << DeltaR_m << endl;
+        cout << "th " << th * 180 / M_PI << endl;
+        cout << "R_\n"
+             << R_ << endl;
+
         cout << "e2 = " << e2.transpose() << endl;
         cout << "e3 = " << e3.transpose() << endl;);
     // compute local displacements from global displacements.
     // Taking u_l = ln-l0 is not recommended since subtracting two large
     // numbers may be inaccurate with limited precision. Better to adopt
-    // ul = ln - l0 = (ln - l0)*(ln + l0)/(ln + l0) = (ln^2 + l0^2)/(ln + l0)
+    // ul = ln - l0 = (ln - l0)*(ln + l0)/(ln + l0) = (ln^2 - l0^2)/(ln + l0)
 
     const Scalar ul = (ln * ln - l0 * l0) / (ln + l0);
     assert(is_close(ul, ln - l0));
@@ -89,6 +253,16 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Scalar theta_l4 = asin(0.5 * (-u3.dot(e2) + u2.dot(e3)));
     const Scalar theta_l5 = asin(0.5 * (-u2.dot(e1) + u1.dot(e2)));
     const Scalar theta_l6 = asin(0.5 * (-u3.dot(e1) + u1.dot(e3)));
+
+    cout << "Delta torsion [deg] " << 180 / M_PI * (theta_l4 - theta_l1) << endl;
+    cout << "ul " << ul << endl;
+    cout << "theta_l1 " << theta_l1 << endl;
+    cout << "theta_l2 " << theta_l2 << endl;
+    cout << "theta_l3 " << theta_l3 << endl;
+    cout << "theta_l4 " << theta_l4 << endl;
+    cout << "theta_l5 " << theta_l5 << endl;
+    cout << "theta_l6 " << theta_l6 << endl;
+
     // cout << "n_glob " << n_glob << endl;
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
@@ -134,8 +308,10 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
                 0.25 * skew_symmetric(r3) * e1 * (e1 + r1).transpose();
 
     Eigen::Matrix<Scalar, 12, 3> Lr2, Lr3;
-    Lr2 << L1r2, L2r2, -L1r2, L2r2;
+    Lr2 << L1r2, L2r2, -L1r2, L2r2; // Ikke transponer?
     Lr3 << L1r3, L2r3, -L1r3, L2r3;
+
+    Eigen::Matrix<Scalar, 12, 3> HH;
 
     Vec12 h1, h2, h3, h4, h5, h6;
     h1 << Vec3::Zero(), -t3.cross(e2) + t2.cross(e3), Vec3::Zero(), Vec3::Zero();
@@ -180,19 +356,15 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec7 R_int_e_l = calc_element_forces_local(ri_e, ro_e, l0, E, G, ul,
                                                      theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
 
-    debug_print(
+    DEBUG_ONLY(
         cout << "R_int_e_l:\n"
              << R_int_e_l << endl;);
 
     const Vec12 R_int_e = F_transpose * R_int_e_l;
     assert(R_int_e.allFinite());
-    debug_print(
+    DEBUG_ONLY(
         cout << "R_int_e:\n"
              << R_int_e << endl;);
-    assert(is_close(theta_l2, 0, 1e-4));
-    assert(is_close(theta_l3, 0, 1e-4));
-    assert(is_close(theta_l5, 0, 1e-4));
-    assert(is_close(theta_l6, 0, 1e-4));
 
     R_int_trans[ie] += R_int_e.segment(0, 3);
     R_int_rot[ie] += R_int_e.segment(3, 3);
@@ -318,29 +490,39 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
         beam_system.R_ext_trans[i] = beam_system.R_static_trans[i];
         beam_system.R_ext_rot[i] = beam_system.R_static_rot[i];
     }
-    print_std_vector(beam_system.R_int_trans, "R int trans");
-    print_std_vector(beam_system.R_int_rot, "R int rot");
+    DEBUG_ONLY(
+        print_std_vector(beam_system.R_int_trans, "R int trans");
+        print_std_vector(beam_system.R_int_rot, "R int rot"););
 
 #pragma omp parallel for
-    for (Index ie = 0; ie < Ne; ie++)
+    /*even elements*/
+    for (Index ie = 0; ie < Ne; ie += 2)
     {
-        if (ie % 2 == 0)
-        {
-            calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-                                      beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
-                                      geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-        }
+        // if (ie % 2 == 0)
+        // {
+        calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
+                                  beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+                                  geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+        calc_element_inner_forces_battini(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
+                                          beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+                                          geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+        // }
     }
 #pragma omp parallel for
-    for (Index ie = 0; ie < Ne; ie++)
+    /*Odd elements*/
+    for (Index ie = 1; ie < Ne; ie += 2)
     {
 
-        if (ie % 2 == 1)
-        {
-            calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-                                      beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
-                                      geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-        }
+        // if (ie % 2 == 1)
+        // {
+        calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
+                                  beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+                                  geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+
+        calc_element_inner_forces_battini(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
+                                          beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+                                          geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+        // }
     }
 
     /*------------------------------------------  # - R: [0,0,0, 0, 600000, 0]
@@ -413,7 +595,7 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
         {
             v_trans[i] += 0.5 * dt * (R_ext_trans[i] - R_int_trans[i]) / M[i];
 
-            debug_print(
+            DEBUG_ONLY(
                 if (i == 1) cout << "v_trans:\n"
                                  << v_trans[i] << endl;);
         }
@@ -423,13 +605,13 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
             /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
             const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
 
-            debug_print(if (i == 1) cout
-                        << "R_ext_rot\n"
-                        << R_ext_rot[i] << endl
-                        << "R_int_rot\n"
-                        << R_int_rot[i] << endl
-                        << "R_rot\n"
-                        << R_rot_u << endl);
+            DEBUG_ONLY(if (i == 1) cout
+                       << "R_ext_rot\n"
+                       << R_ext_rot[i] << endl
+                       << "R_int_rot\n"
+                       << R_int_rot[i] << endl
+                       << "R_rot\n"
+                       << R_rot_u << endl);
             Vec3 &omega_u = v_rot[i];
             const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
             // Scalar tol = 0.00001;
@@ -440,7 +622,7 @@ inline void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict
             //     assert(false);
             // }
             omega_u += 0.5 * dt * omega_u_dot;
-            debug_print(
+            DEBUG_ONLY(
                 if (i == 1) cout << "omega_u:\n"
                                  << v_rot[i] << endl;);
             // if (n_glob == 10000 && i > 10)
@@ -458,7 +640,7 @@ inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, 
         for (Index i = 0; i < N; i++)
         {
             d_trans[i] += dt * v_trans[i];
-            debug_print(
+            DEBUG_ONLY(
                 if (i == 1) cout << "d_trans:\n"
                                  << d_trans[i] << endl;);
         }
@@ -479,17 +661,17 @@ inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, 
             const Vec3 omega = q.rotate_vector(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
             // const Vec3 omega = q.rotate_vector_reversed(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
 
-            debug_print(if (i == 1)
-                            cout
-                        << "omega_u:\n"
-                        << omega_u << endl
-                        << "omega:\n"
-                        << omega << endl);
-            assert(is_close(omega_u.y(), 0, 1e-4) && is_close(omega_u.z(), 0, 1e-4));
+            DEBUG_ONLY(if (i == 1)
+                           cout
+                       << "omega_u:\n"
+                       << omega_u << endl
+                       << "omega:\n"
+                       << omega << endl);
+            // assert(is_close(omega_u.y(), 0, 1e-4) && is_close(omega_u.z(), 0, 1e-4));
             q.compound_rotate(dt * omega);
             Scalar norm = q.norm();
             assert(is_close(norm, 1.0));
-            debug_print(
+            DEBUG_ONLY(
                 if (i == 1) cout << "q_rot:\n"
                                  << q.to_matrix() << endl);
         }
@@ -565,20 +747,20 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     {
         R_int_trans[i] += alpha * M[i] * v_trans[i];
     }
-    // Test with rotational dofs also?
-    // #pragma omp parallel for
-    //     for (Index i = 0; i < N; i++)
-    //     {
-    //         alpha = 10000;
-    //         Vec3 R_damp_rot = alpha * J_u[i].array() * v_rot[i].array();
-    //         R_damp_rot = d_rot->rotate_vector(R_damp_rot);
-    //         if (i == 10 && n_glob % 100 == 0)
-    //         {
-    //             cout << "M_w_1 prior: " << R_int_rot[i].x() << endl;
-    //             cout << "M damp w_1: " << R_damp_rot.x() << endl;
-    //         }
-    //         R_int_rot[i] += R_damp_rot;
-    //     }
+// Test with rotational dofs also?
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        Scalar alpha_rot = 1 * alpha;
+        Vec3 R_damp_rot = alpha_rot * J_u[i].array() * v_rot[i].array();
+        R_damp_rot = d_rot->rotate_vector(R_damp_rot);
+        // if (i == 10 && n_glob % 100 == 0)
+        // {
+        //     cout << "M_w_1 prior: " << R_int_rot[i].x() << endl;
+        //     cout << "M damp w_1: " << R_damp_rot.x() << endl;
+        // }
+        R_int_rot[i] += R_damp_rot;
+    }
 }
 
 // inline void step_central_differences(Scalar dt, Index N, Vec3Quat *__restrict__ u, Vec3Vec3 *__restrict__ v,
