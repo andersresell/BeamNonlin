@@ -1,8 +1,8 @@
 setup:
   CFL: 0.9 # 1.917
-  n_max: 500000
-  t_max:  100
-  n_write: 10 # 200
+  n_max: 100
+  t_max:  1
+  n_write: 1 # 200
   n_threads: 1
   save_csv : true
   gravity_enabled: false
@@ -15,16 +15,16 @@ setup:
 bc: 
   case: "cantilever"
   #orientation_base_euler_angles_xyz_deg: [0, 0, 0]
-  orientation_base_euler_angles_xyz_deg: [0, 0, 45]
+  orientation_base_euler_angles_xyz_deg: [0,0, 45]
 
   
 loads:
   point_loads_rel_to_base_orientation: true
   point_loads:
-  # - R: [0,0,0, 0, 300000, -300000]
-  #   rel_loc: 1
-   - R: [0, 0, 0,0, 0,0]
+   - R: [0, 0, 0,200, 0,0]
      rel_loc: 1
+  #  - R: [0, 0, 100,100, 10,-5]
+  #    rel_loc: 1
 
     
 

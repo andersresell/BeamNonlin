@@ -46,6 +46,8 @@ using std::vector;
 #define omp_set_num_threads(num_threads)
 #endif
 
+// #define SINGLE_PRECISION
+
 #ifdef SINGLE_PRECISION
 using Scalar = float;
 #define SMALL_SCALAR 1e-4

@@ -1,4 +1,5 @@
 #include "../include/Solver.hpp"
+#include "Solver.inl"
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 {
@@ -11,7 +12,7 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
     calc_dt(config, geometry);
     const Index n_steps = config.get_n_steps();
 
-    calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
+    // calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
 
     printf("\n"
            "-----------------Starting simulation----------------\n"
@@ -31,6 +32,8 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 
         config.t = n * config.dt;
         config.n = n;
+
+        // calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
 
         // remove later
         n_glob = n;
@@ -73,14 +76,20 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 
             Mat3 U = Mat3::Identity();
             Mat3 T = U;
-            // Mat3 T = triad_from_euler_angles(20 * M_PI / 180, 0, 45 * M_PI / 180, "xyz");
+            T = triad_from_euler_angles(10 * M_PI / 180, 0, 0);
+            T = triad_from_euler_angles(0, 0, 45 * M_PI / 180);
 
+            // cout << "T \n"
+            //      << T << endl;
             beam_sys.d_trans[0] = Vec3{0, 0, 0};
-            beam_sys.d_trans[1] = Vec3{0, 0, 1};
-            beam_sys.d_rot[0].from_matrix(U);
-            beam_sys.d_rot[N - 1].from_matrix(T);
-            beam_sys.v_rot[0] = Vec3::Zero();
-            beam_sys.v_rot[N - 1] = Vec3::Zero();
+            beam_sys.d_trans[1] = Vec3{0, 0, 0};
+
+            // beam_sys.d_rot[0].from_matrix(U);
+            // beam_sys.d_rot[N - 1].from_matrix(T);
+            // beam_sys.v_rot[0] = Vec3::Zero();
+            Vec3 omega_u = {100, 1, 0};
+            cout << "omega_mag_orig " << omega_u.norm() << endl;
+            beam_sys.v_rot[N - 1] = omega_u;
         }
 
         step_explicit(config, geometry, borehole, beam_sys);
@@ -240,11 +249,18 @@ void calc_static_loads(const Config &config, const Geometry &geometry,
     const Vec3 &g = config.gravity_acc;
     const Scalar rho = config.rho;
 
+    cout << "remove later\n";
+    cout << "t=" << config.t << endl;
+    Scalar factor = 10;
+    if (config.t > 0.3)
+        factor = 0;
+    cout << "amplitude = " << sin(config.t * factor) << endl;
     for (Index ie = 0; ie < Ne; ie++)
     {
         if (gravity_enabled)
         {
             const Scalar m = geometry.dx_e(ie) * geometry.A_e(ie) * rho;
+
             R_static_trans[ie] += 0.5 * m * g;
             R_static_trans[ie + 1] += 0.5 * m * g;
             // R_static[ie].trans.y() += m * STANDARD_GRAVITY / 2;
@@ -257,8 +273,9 @@ void calc_static_loads(const Config &config, const Geometry &geometry,
     Mat3 R_base = config.point_loads_rel_to_base_orientation ? config.bc_orientation_base.to_matrix() : Mat3::Identity();
     for (const PointLoad &pl : config.R_point_static)
     {
-        R_static_trans[pl.i] += R_base * pl.load_trans;
-        R_static_rot[pl.i] += R_base * pl.load_rot;
+        R_static_trans[pl.i] += R_base * pl.load_trans * sin(config.t * factor);
+
+        R_static_rot[pl.i] += R_base * pl.load_rot * sin(config.t * factor);
     }
 }
 

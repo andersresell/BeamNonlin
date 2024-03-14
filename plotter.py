@@ -192,7 +192,7 @@ class Plotter:
         plt.plot(t, KE_w_u_1, label="KE_w_u1")
         plt.plot(t, KE_w_u_2, label="KE_w_u2")
         plt.plot(t, KE_w_u_3, label="KE_w_u3")
-        #plt.ylim([0, 0.001])
+        plt.ylim([0, 10000])
         plt.legend()
         plt.xlabel("t[s]")
         plt.ylabel("Specific kinetic energy")
@@ -253,7 +253,8 @@ class Plotter:
         plt.plot(t,W_ext,label="W_ext")
         plt.plot(t,E_tot,label="E_tot")
         lim=20000
-        plt.ylim(-lim/2,lim/2)
+        plt.ylim(0,lim)
+        #plt.ylim(-lim/2,lim/2)
         plt.legend()
         plt.xlabel("$t$")
         plt.ylabel("Energy $[J]$")
