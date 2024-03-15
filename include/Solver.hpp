@@ -40,11 +40,11 @@ void calc_static_loads(const Config &config, const Geometry &geometry,
 
 inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam_system);
 
-//remember to make this inline again
+// remember to make this inline again
 void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
-                                    const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
-                                    const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
-                                    Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot);
+                             const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
+                             const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
+                             Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot);
 
 inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot,
                                 Vec3 *__restrict__ d_trans, Quaternion *__restrict__ d_rot);
@@ -62,6 +62,8 @@ inline void kinetic_energy_update(Index N, const Scalar *__restrict__ M, const V
 
 inline void rotate_moment_to_body_frame(Index N, const Quaternion *__restrict__ d_rot,
                                         Vec3 *__restrict__ R_int_rot, Vec3 *__restrict__ R_ext_rot);
+void step_explicit_old(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys);
+
 void step_explicit(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys);
 
 inline void calc_contact_forces(const Config &config, Index N, const Vec3 *__restrict__ x_hole,
@@ -72,5 +74,3 @@ inline void calc_contact_forces(const Config &config, Index N, const Vec3 *__res
 void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
                                             Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
                                             Scalar theta_5l, Scalar theta_6l, Vec3 &f1, Vec3 &m1, Vec3 &f2, Vec3 &m2);
-
-//#include "../src/Solver.inl"

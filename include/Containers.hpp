@@ -17,7 +17,11 @@ struct Quaternion
 
     Quaternion product(const Quaternion &a) const;
     /*Compound rotates the existing quaternion by the pseudo vector Theta */
-    void compound_rotate(const Vec3 &Theta);
+    // void compound_rotate(const Vec3 &Theta);
+
+    /*Updates the rotation as U_{n+1} = U_n*exp(S(Theta_u)),
+    where Theta_u is an incremental rotation in the body frame*/
+    void exponential_map_body_frame(const Vec3 &theta_u);
 
     /*Performs the operation vn = R(q)*v0*/
     Vec3 rotate_vector(const Vec3 &v0) const;

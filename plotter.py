@@ -252,8 +252,8 @@ class Plotter:
         plt.plot(t,W_int,label="W_int")
         plt.plot(t,W_ext,label="W_ext")
         plt.plot(t,E_tot,label="E_tot")
-        lim=20000
-        plt.ylim(0,lim)
+        #lim=20000
+        #plt.ylim(0,lim)
         #plt.ylim(-lim/2,lim/2)
         plt.legend()
         plt.xlabel("$t$")

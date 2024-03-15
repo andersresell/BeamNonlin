@@ -2,202 +2,10 @@
 #pragma once
 #include "../include/Solver.hpp"
 
-#define calc_element_inner_forces calc_element_inner_forces_crisfield
-
-inline void calc_element_inner_forces_battini(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
-                                              const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
-                                              Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar youngs, Scalar G)
+inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
+                                      const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
+                                      Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
 {
-    DEBUG_ONLY(cout << "!!!!!!!!!!!!BATTINI!!!!!!!!!!\n");
-    const Vec3 &X1 = X[ie];
-    const Vec3 &X2 = X[ie + 1];
-    const Vec3 &u1 = d_trans[ie];
-    const Vec3 &u2 = d_trans[ie + 1];
-    const Mat3 Rg1 = d_rot[ie].to_matrix();
-    const Mat3 Rg2 = d_rot[ie + 1].to_matrix();
-
-    const Scalar ln = (X2 + u2 - X1 - u1).norm();
-    const Scalar l0 = (X2 - X1).norm();
-
-    /*Create element frame*/
-    const Vec3 e1 = (X2 + u2 - X1 - u1) / ln;
-    const Vec3 q1 = Rg1 * Vec3{0, 1, 0};
-    const Vec3 q2 = Rg2 * Vec3{0, 1, 0};
-    const Vec3 q = 0.5 * (q1 + q2);
-    const Vec3 e3 = (e1.cross(q)).normalized();
-    const Vec3 e2 = e3.cross(e1);
-    assert(is_close(e1.norm(), 1.0));
-    assert(is_close(e3.norm(), 1.0) && is_close(e3.dot(e1), 0.0));
-    assert(is_close(e2.norm(), 1.0) && is_close(e2.dot(e1), 0.0));
-    Mat3 Rr;
-    Rr << e1, e2, e3;
-    DEBUG_ONLY(
-        cout << "e1 = " << e1.transpose() << endl;
-        cout << "e2 = " << e2.transpose() << endl;
-        cout << "e3 = " << e3.transpose() << endl;);
-
-    const Scalar ul = ln - l0;
-
-    const Mat3 Rl1 = Rr.transpose() * Rg1;
-    const Mat3 Rl2 = Rr.transpose() * Rg2;
-
-    // Goal is to compute log(R).
-    // we have R = exp(S(theta)), so log(R) = S(theta)?
-    // I think I should use spurriers algorithm to extract a quaternion from R. And then extract the pseudo vector?
-    Quaternion ql1, ql2;
-    ql1.from_matrix(Rl1);
-    ql2.from_matrix(Rl2);
-    // omega = 2*q/q0
-    const Vec3 theta_l1 = 2 * ql1.q / ql1.q0; // remember that omega = 2*tan(theta/2) is a very good approximation to theta for small angles
-    const Vec3 theta_l2 = 2 * ql2.q / ql2.q0; // remember that omega = 2*tan(theta/2) is a very good approximation to theta for small angles
-    constexpr Scalar THETA_MAX = 10 * M_PI / 180;
-    assert(theta_l1.norm() < THETA_MAX);
-    assert(theta_l2.norm() < THETA_MAX);
-    DEBUG_ONLY(
-        cerr << "theta_l1 = " << theta_l1.transpose() << endl;
-        cerr << "theta_l2 = " << theta_l2.transpose() << endl;);
-
-#ifndef NDEBUG
-    // checking if the above corresponds with alternate definition (16.8 crisfield) allowed for 0 < |theta| <pi
-    // checking for the first node:
-    {
-        Mat3 R = Rl1;
-        Vec3 sin_theta_e = 0.5 * Vec3(R(2, 1) - R(1, 2), R(0, 2) - R(2, 0), R(1, 0) - R(0, 1));
-        Vec3 theta = sin_theta_e; // sin(theta)/theta are close for small angles
-        cerr << "theta check " << theta << endl;
-        assert(theta.isApprox(theta_l1, 1e-2));
-    }
-#endif
-
-    // inverse transformation matrix
-    Mat3 Ts_inv1, Ts_inv2;
-    {
-        constexpr Scalar tol = 1e-4;
-        Vec3 theta_pseudo = theta_l1;
-        Scalar theta = theta_pseudo.norm();
-        Vec3 e = theta_pseudo.normalized();
-        if (abs(theta) > tol)
-        {
-            Ts_inv1 = (theta / 2) / tan(theta / 2) * Mat3::Identity() + (1 - (theta / 2) / tan(theta / 2)) * e * e.transpose() - 0.5 * skew_symmetric(theta_pseudo);
-        }
-        else
-        {
-            Ts_inv1 = Mat3::Identity();
-        }
-        theta_pseudo = theta_l1;
-        theta = theta_pseudo.norm();
-        e = theta_pseudo.normalized();
-        if (abs(theta) > tol)
-        {
-            Ts_inv2 = (theta / 2) / tan(theta / 2) * Mat3::Identity() + (1 - (theta / 2) / tan(theta / 2)) * e * e.transpose() - 0.5 * skew_symmetric(theta_pseudo);
-        }
-        else
-        {
-            Ts_inv2 = Mat3::Identity();
-        }
-    }
-    DEBUG_ONLY(cout << "Ts_inv1\n"
-                    << Ts_inv1 << endl
-                    << "Ts_inv2\n"
-                    << Ts_inv2 << endl;)
-
-    using Mat7 = Eigen::Matrix<Scalar, 7, 7>;
-    Mat7 Bl{Mat7::Zero()};
-
-    Bl(0, 0) = 1;
-    Bl.block<3, 3>(1, 1) = Ts_inv1;
-    Bl.block<3, 3>(4, 4) = Ts_inv2;
-    DEBUG_ONLY(cout << "Bl\n"
-                    << Bl << endl;)
-
-    using Vec12 = Eigen::Vector<Scalar, 12>;
-    Vec12 r_T{Vec12::Zero()};
-    r_T << -e1, Vec3::Zero(), e1, Vec3::Zero();
-    using Mat12 = Eigen::Matrix<Scalar, 12, 12>;
-    Mat12 E{Mat12::Zero()};
-    E.block<3, 3>(0, 0) = Rr;
-    E.block<3, 3>(3, 3) = Rr;
-    E.block<3, 3>(6, 6) = Rr;
-    E.block<3, 3>(9, 9) = Rr;
-
-    Eigen::Matrix<Scalar, 3, 12> G_T;
-    G_T.setZero();
-    {
-        const Vec3 _q = Rr.transpose() * q;
-        const Vec3 _q1 = Rr.transpose() * q1;
-        const Vec3 _q2 = Rr.transpose() * q2;
-
-        const Scalar eta = _q.x() / _q.y();
-        const Scalar eta11 = _q1.x() / _q.y();
-        const Scalar eta12 = _q1.y() / _q.y();
-        const Scalar eta21 = _q2.x() / _q.y();
-        const Scalar eta22 = _q2.y() / _q.y();
-        G_T << 0, 0, eta / ln, eta12 / 2, -eta11 / 2, 0, 0, 0, -eta / ln, eta22 / 2, -eta21 / 2, 0,
-            0, 0, 1 / ln, 0, 0, 0, 0, 0, -1 / ln, 0, 0, 0,
-            0, -1 / ln, 0, 0, 0, 0, 0, 1 / ln, 0, 0, 0, 0;
-    }
-
-    using Mat6_12 = Eigen::Matrix<Scalar, 6, 12>;
-    Mat6_12 P{Mat6_12::Zero()};
-    P.block<3, 3>(0, 3) = Mat3::Identity();
-    P.block<3, 3>(3, 9) = Mat3::Identity();
-    DEBUG_ONLY(cout << "P\n"
-                    << P << endl;)
-    P.block<3, 12>(0, 0) -= G_T;
-    P.block<3, 12>(3, 0) -= G_T;
-
-    DEBUG_ONLY(cout << "P\n"
-                    << P << endl;)
-
-    using Mat7_12 = Eigen::Matrix<Scalar, 7, 12>;
-    Mat7_12 Ba{Mat7_12::Zero()};
-    Ba.block<1, 12>(0, 0) = r_T;
-
-    DEBUG_ONLY(cout << "Ba\n"
-                    << Ba << endl;)
-
-    Ba.block<6, 12>(1, 0) = P * E.transpose();
-
-    DEBUG_ONLY(cout << "Ba\n"
-                    << Ba << endl;)
-
-    // Check this!!
-    const Vec7 fl_o = calc_element_forces_local(ri_e, ro_e, l0, youngs, G, ul, theta_l1.x(), theta_l1.z(), -theta_l1.y(), theta_l2.x(), theta_l2.z(), -theta_l2.y());
-    Vec7 fl{fl_o[3], fl_o[0], fl_o[1], fl_o[2], fl_o[4], fl_o[5], fl_o[6]};
-
-    Mat7_12 B = Bl * Ba;
-    DEBUG_ONLY(
-        cout << "B\n"
-             << B << endl;);
-    // Vec12 dp;
-    // dp << 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
-    // Vec7 dpl = B * dp;
-    // cout << "dpl \n"
-    //      << dpl << endl;
-
-    const Vec12 fg = B.transpose() * fl;
-
-    DEBUG_ONLY(cerr << "fl:\n"
-                    << fl << endl;
-               cerr << "fg:\n"
-                    << fg << endl;)
-    // R_int_trans[ie] += fg.segment(0, 3);
-    // R_int_rot[ie] += fg.segment(3, 3);
-    // R_int_trans[ie + 1] += fg.segment(6, 3);
-    // R_int_rot[ie + 1] += fg.segment(9, 3);
-    int a = 1;
-}
-
-inline void calc_element_inner_forces_crisfield(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
-                                                const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
-                                                Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
-{
-    DEBUG_ONLY(cout << "!!!!!!!!!!!CRISFIELD!!!!!!!\n");
-    DEBUG_ONLY(if (ie == 0) cout << "\n!!!!!!!!!!!! n = " << n_glob << " !!!!!!!!!!\n";);
-    // if (n_glob == 2)
-    // {
-    //     int a = 1;
-    // }
 
     // assert(i&e < X.size() - 1);
     const Vec3 &X1 = X[ie];
@@ -544,31 +352,19 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     /*even elements*/
     for (Index ie = 0; ie < Ne; ie += 2)
     {
-        // if (ie % 2 == 0)
-        // {
+
         calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
                                   beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
                                   geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-        calc_element_inner_forces_battini(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-                                          beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
-                                          geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-        // }
     }
 #pragma omp parallel for
     /*Odd elements*/
     for (Index ie = 1; ie < Ne; ie += 2)
     {
 
-        // if (ie % 2 == 1)
-        // {
         calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
                                   beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
                                   geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-
-        calc_element_inner_forces_battini(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-                                          beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
-                                          geometry.ri_e(ie), geometry.ro_e(ie), E, G);
-        // }
     }
 
     /*------------------------------------------  # - R: [0,0,0, 0, 600000, 0]
@@ -629,79 +425,77 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     //     }
 }
 
-// inline void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
-//                                         const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
-//                                         const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
-//                                         Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot)
-// {
-// #pragma omp parallel
-//     {
-// #pragma omp for nowait
-//         for (Index i = 0; i < N; i++)
-//         {
-//             v_trans[i] += 0.5 * dt * (R_ext_trans[i] - R_int_trans[i]) / M[i];
+inline void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
+                                        const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
+                                        const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
+                                        Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot)
+{
+#pragma omp parallel
+    {
+#pragma omp for nowait
+        for (Index i = 0; i < N; i++)
+        {
+            v_trans[i] += 0.5 * dt * (R_ext_trans[i] - R_int_trans[i]) / M[i];
 
-//             DEBUG_ONLY(
-//                 if (i == 1) cout << "v_trans:\n"
-//                                  << v_trans[i] << endl;);
-//         }
-// #pragma omp for
-//         for (Index i = 0; i < N; i++)
-//         {
-//             /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
-//             const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
+            DEBUG_ONLY(
+                if (i == 1) cout << "v_trans:\n"
+                                 << v_trans[i] << endl;);
+        }
+#pragma omp for
+        for (Index i = 0; i < N; i++)
+        {
+            /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
+            const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
 
-//             DEBUG_ONLY(if (i == 1) cout
-//                        << "R_ext_rot\n"
-//                        << R_ext_rot[i] << endl
-//                        << "R_int_rot\n"
-//                        << R_int_rot[i] << endl
-//                        << "R_rot\n"
-//                        << R_rot_u << endl);
-//             Vec3 &omega_u = v_rot[i];
+            DEBUG_ONLY(if (i == 1) cout
+                       << "R_ext_rot\n"
+                       << R_ext_rot[i] << endl
+                       << "R_int_rot\n"
+                       << R_int_rot[i] << endl
+                       << "R_rot\n"
+                       << R_rot_u << endl);
+            Vec3 &omega_u = v_rot[i];
 
-//             omega_u = {1.424, -2.13, 3.11331};
+            Mat3 JJu = J_u[i].asDiagonal();
+            Vec3 Ju = J_u[i];
+            Vec3 rot_term_orig = omega_u.cross(Vec3{J_u[i].array() * omega_u.array()});
 
-//             Mat3 JJu = J_u[i].asDiagonal();
-//             Vec3 Ju = J_u[i];
-//             Vec3 rot_term_orig = omega_u.cross(Vec3{J_u[i].array() * omega_u.array()});
+            Vec3 rot_term_new = skew_symmetric(omega_u) * JJu * omega_u;
 
-//             Vec3 rot_term_new = skew_symmetric(omega_u) * JJu * omega_u;
+            cout << "rot_term_orig " << rot_term_orig << endl;
+            cout << "rot_term_new " << rot_term_new << endl;
 
-//             cout << "rot_term_orig " << rot_term_orig << endl;
-//             cout << "rot_term_new " << rot_term_new << endl;
+            Vec3 omega_u_dot_new;
+            omega_u_dot_new.x() = (R_rot_u.x() - (Ju.z() - Ju.y()) * omega_u.y() * omega_u.z()) / Ju.x();
+            omega_u_dot_new.y() = (R_rot_u.y() - (Ju.x() - Ju.z()) * omega_u.x() * omega_u.z()) / Ju.y();
+            omega_u_dot_new.z() = (R_rot_u.z() - (Ju.y() - Ju.x()) * omega_u.x() * omega_u.y()) / Ju.z();
 
-//             Vec3 omega_u_dot_new;
-//             omega_u_dot_new.x() = (R_rot_u.x() - (Ju.z() - Ju.y()) * omega_u.y() * omega_u.z()) / Ju.x();
-//             omega_u_dot_new.y() = (R_rot_u.y() - (Ju.x() - Ju.z()) * omega_u.x() * omega_u.z()) / Ju.y();
-//             omega_u_dot_new.z() = (R_rot_u.z() - (Ju.y() - Ju.x()) * omega_u.x() * omega_u.y()) / Ju.z();
+            const Vec3 omega_u_dot = (R_rot_u - rot_term_orig).array() / J_u[i].array();
 
-//             const Vec3 omega_u_dot = (R_rot_u - rot_term_orig).array() / J_u[i].array();
+            cout << "omega_u_dot\n"
+                 << omega_u_dot << endl;
+            cout << "omega_u_dot_new\n"
+                 << omega_u_dot_new << endl;
+            // cout << "diff: \n"
+            //      << omega_u_dot - omega_u_dot_new << endl;
 
-//             cout << "omega_u_dot\n"
-//                  << omega_u_dot << endl;
-//             cout << "omega_u_dot_new\n"
-//                  << omega_u_dot_new << endl;
-//             // cout << "diff: \n"
-//             //      << omega_u_dot - omega_u_dot_new << endl;
-
-//             // const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
-//             //  Scalar tol = 0.00001;
-//             //  if (i != 0 && abs(omega_u[0]) > tol)
-//             //  {
-//             //      cout << "omega_u \n"
-//             //           << omega_u << endl;
-//             //      assert(false);
-//             //  }
-//             omega_u += 0.5 * dt * omega_u_dot;
-//             DEBUG_ONLY(
-//                 if (i == 1) cout << "omega_u:\n"
-//                                  << v_rot[i] << endl;);
-//             // if (n_glob == 10000 && i > 10)
-//             //     omega_u[0] = 0.1;
-//         }
-//     }
-// }
+            // const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
+            //  Scalar tol = 0.00001;
+            //  if (i != 0 && abs(omega_u[0]) > tol)
+            //  {
+            //      cout << "omega_u \n"
+            //           << omega_u << endl;
+            //      assert(false);
+            //  }
+            omega_u += 0.5 * dt * omega_u_dot;
+            DEBUG_ONLY(
+                if (i == 1) cout << "omega_u:\n"
+                                 << v_rot[i] << endl;);
+            // if (n_glob == 10000 && i > 10)
+            //     omega_u[0] = 0.1;
+        }
+    }
+}
 
 inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot, Vec3 *__restrict__ d_trans,
                                 Quaternion *__restrict__ d_rot)
@@ -740,7 +534,7 @@ inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, 
                 cout << "omega mag " << omega.norm() << endl;
             }
             // assert(is_close(omega_u.y(), 0, 1e-4) && is_close(omega_u.z(), 0, 1e-4));
-            q.compound_rotate(dt * omega);
+            // q.compound_rotate(dt * omega);
             Scalar norm = q.norm();
             assert(is_close(norm, 1.0));
         }

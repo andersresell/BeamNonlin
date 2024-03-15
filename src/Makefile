@@ -48,7 +48,6 @@ SRC = BeamNonlin.cpp \
 	  Config.cpp \
 	  InputParser.cpp \
 	  Borehole.cpp \
-	  Solver2.cpp
 
 OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(SRC)) 
 

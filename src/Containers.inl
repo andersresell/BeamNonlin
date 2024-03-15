@@ -106,10 +106,16 @@ inline Quaternion Quaternion::product(const Quaternion &a) const
     return q_ab;
 }
 
-inline void Quaternion::compound_rotate(const Vec3 &Theta)
+// inline void Quaternion::compound_rotate(const Vec3 &Theta)
+// {
+//     Quaternion delta_q{Theta};
+//     *this = delta_q.product(*this);
+// }
+
+inline void Quaternion::exponential_map_body_frame(const Vec3 &theta_u)
 {
-    Quaternion delta_q{Theta};
-    *this = delta_q.product(*this);
+    Quaternion delta_q{theta_u};
+    *this = this->product(delta_q);
 }
 
 inline Vec3 Quaternion::rotate_vector(const Vec3 &v0) const

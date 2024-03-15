@@ -90,13 +90,15 @@ inline void test_quat()
                  << "vnr " << vnr << endl;
         }
 
-        Vec3 dTheta = Vec3::Random();
-        Quaternion dq{dTheta};
-        Mat3 dR = dq.to_matrix();
+        Vec3 dTheta_u = Vec3::Random();
+        Quaternion dq{dTheta_u};
+        Mat3 dR_u = dq.to_matrix();
 
-        q.compound_rotate(dTheta);
+        // q.compound_rotate(dTheta);
+        q.exponential_map_body_frame(dTheta_u);
+
         Mat3 R_n_q = q.to_matrix();
-        Mat3 R_n = dR * R;
+        Mat3 R_n = R * dR_u;
 
         if ((R_n_q - R_n).norm() > SMALL_SCALAR)
         {
