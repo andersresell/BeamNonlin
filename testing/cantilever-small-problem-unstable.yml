@@ -1,6 +1,6 @@
 setup:
   CFL: 0.9 # 1.917
-  n_max: 100
+  n_max: 10
   t_max:  1
   n_write: 1 # 200
   n_threads: 1
@@ -14,8 +14,8 @@ setup:
 
 bc: 
   case: "cantilever"
-  #orientation_base_euler_angles_xyz_deg: [0, 0, 0]
-  orientation_base_euler_angles_xyz_deg: [0,0, 45]
+  orientation_base_euler_angles_xyz_deg: [0, 0, 0]
+  #orientation_base_euler_angles_xyz_deg: [0,0, 45]
 
   
 loads:

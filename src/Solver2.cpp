@@ -42,6 +42,8 @@ void velocity_update_partial(Scalar dt, Index N, const Scalar *__restrict__ M, c
 
             Mat3 JJu = J_u[i].asDiagonal();
             Vec3 Ju = J_u[i];
+            cout << "Ju\n"
+                 << Ju << endl;
             // Vec3 rot_term_orig = omega_u.cross(Vec3{J_u[i].array() * omega_u.array()});
 
             // Vec3 rot_term_new = skew_symmetric(omega_u) * JJu * omega_u;
