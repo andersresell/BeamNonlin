@@ -69,24 +69,6 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Vec3 e2 = r2 - 0.5 * r2.dot(e1) * (e1 + r1);
     const Vec3 e3 = r3 - 0.5 * r3.dot(e1) * (e1 + r1);
 
-    // const Vec3 e3 = e1.cross(e2);
-
-    Scalar th = 2 * acos(qDeltaR.q0);
-    Vec3 Om = 2 * qDeltaR.q / qDeltaR.q0;
-    Vec3 Om_half = Om / 2;
-    Scalar om_half = Om_half.norm();
-    Scalar th_half = 2 * atan(om_half / 2);
-    DEBUG_ONLY(
-        cout << "th half " << th_half * 180 / M_PI << endl;
-        cout << "q_DeltaR " << qDeltaR << endl;
-        cout << "DeltaR_m \n"
-             << DeltaR_m << endl;
-        cout << "th " << th * 180 / M_PI << endl;
-        cout << "R_\n"
-             << R_ << endl;
-
-        cout << "e2 = " << e2.transpose() << endl;
-        cout << "e3 = " << e3.transpose() << endl;);
     // compute local displacements from global displacements.
     // Taking u_l = ln-l0 is not recommended since subtracting two large
     // numbers may be inaccurate with limited precision. Better to adopt
@@ -115,7 +97,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-#define MAX_ANGLE 85 * M_PI / 180
+#define MAX_ANGLE 80 * M_PI / 180
     assert(abs(theta_l1) < MAX_ANGLE);
     assert(abs(theta_l2) < MAX_ANGLE);
     assert(abs(theta_l3) < MAX_ANGLE);
@@ -125,7 +107,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
 #undef MAX_ANGLE
 
     using Mat7_12 = Eigen::Matrix<Scalar, 12, 7>;
-    Mat7_12 F_transpose{Mat7_12::Zero()}; // Transpose of F where zero rows in F are excluded
+    Mat7_12 F_transpose; // Transpose of F where zero rows in F are excluded
     constexpr Index f4 = 0;
     constexpr Index f5 = 1;
     constexpr Index f6 = 2;
@@ -156,20 +138,17 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     Mat3 L2r3 = 0.5 * skew_symmetric(r3) - 0.25 * r3.transpose() * e1 * skew_symmetric(r1) -
                 0.25 * skew_symmetric(r3) * e1 * (e1 + r1).transpose();
 
-    Eigen::Matrix<Scalar, 12, 3> Lr2{}, Lr3{};
-    Lr2 << L1r2, L2r2, -L1r2, L2r2; // Ikke transponer?
+    Eigen::Matrix<Scalar, 12, 3> Lr2, Lr3;
+    Lr2 << L1r2, L2r2, -L1r2, L2r2;
     Lr3 << L1r3, L2r3, -L1r3, L2r3;
 
-    Vec12 h1{Vec12::Zero()}, h2{Vec12::Zero()}, h3{Vec12::Zero()}, h4{Vec12::Zero()}, h5{Vec12::Zero()}, h6{Vec12::Zero()};
+    Vec12 h1, h2, h3, h4, h5, h6;
     h1 << Vec3::Zero(), -t3.cross(e2) + t2.cross(e3), Vec3::Zero(), Vec3::Zero();
     h2 << A * t2, -t2.cross(e1) + t1.cross(e2), -A * t2, Vec3::Zero();
     h3 << A * t3, -t3.cross(e1) + t1.cross(e3), -A * t3, Vec3::Zero();
     h4 << Vec3::Zero(), Vec3::Zero(), Vec3::Zero(), -u3.cross(e2) + u2.cross(e3);
     h5 << A * u2, Vec3::Zero(), -A * u2, -u2.cross(e1) + u1.cross(e2);
     h6 << A * u3, Vec3::Zero(), -A * u3, -u3.cross(e1) + u1.cross(e3);
-
-    // cout << "h3 " << h3.transpose() << endl;
-    // cout << "h6 " << h6.transpose() << endl;
 
     F_transpose.col(f4) = 1 / (2 * cos(theta_l1)) * (Lr3 * t2 - Lr2 * t3 + h1);
     F_transpose.col(f5) = 1 / (2 * cos(theta_l2)) * (Lr2 * t1 + h2);
@@ -178,31 +157,6 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     F_transpose.col(f11) = 1 / (2 * cos(theta_l5)) * (Lr2 * u1 + h5); // seems to be an error in the book for f11 and f12. it should be + in front of h6 and h6 (it's + in the paper)
     F_transpose.col(f12) = 1 / (2 * cos(theta_l6)) * (Lr3 * u1 + h6);
 
-    // cout << "f6\n"
-    //      << f6 << "\nf12\n"
-    //      << f12 << endl;
-
-    // Eigen::Matrix<Scalar, 12, 12> F;
-    // F << f1.transpose(),
-    //     f2.transpose(),
-    //     f3.transpose(),
-    //     f4.transpose(),
-    //     f5.transpose(),
-    //     f6.transpose(),
-    //     f7.transpose(),
-    //     f8.transpose(),
-    //     f9.transpose(),
-    //     f10.transpose(),
-    //     f11.transpose(),
-    //     f12.transpose();
-    DEBUG_ONLY(
-        cout << "Crisfield check\n";);
-    Vec12 dp;
-    dp << 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
-    Vec7 dpl = F_transpose.transpose() * dp;
-    DEBUG_ONLY(
-        cout << "dpl cf\n"
-             << dpl << endl;);
     // cout << "F^T\n"
     //      << F.transpose() << endl;
 
@@ -831,10 +785,12 @@ inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSy
 {
     Index N = geometry.get_N();
 
-    vector<Vec3> d_trans = beam_system.d_trans;
+    vector<Vec3> &d_trans = beam_system.d_trans;
     vector<Quaternion> &d_rot = beam_system.d_rot;
     vector<Vec3> &v_trans = beam_system.v_trans;
     vector<Vec3> &v_rot = beam_system.v_rot;
+    vector<Vec3> &delta_d_trans = beam_system.delta_d_trans; // design withoug having to set these later
+    vector<Vec3> &delta_d_rot = beam_system.delta_d_rot;
 
     assert(N == d_trans.size() && N == d_rot.size() && N == v_trans.size() && N == v_rot.size());
 
@@ -845,15 +801,18 @@ inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSy
     case BC_Case::CANTILEVER:
         d_trans[0] = {0, 0, 0};
         v_trans[0] = {0, 0, 0};
+        delta_d_trans[0] = {0, 0, 0};
         // d_rot[0].from_matrix();
         d_rot[0] = config.bc_orientation_base;
         v_rot[0] = {0, 0, 0};
+        delta_d_rot[0] = {0, 0, 0};
         break;
     case BC_Case::SIMPLY_SUPPORTED:
         d_trans[0] = {0, 0, 0};
         v_trans[0] = {0, 0, 0};
         d_trans[N - 1] = {0, 0, 0};
         v_trans[N - 1] = {0, 0, 0};
+        assert(false); // fix delta d trans and rot
         break;
     default:
         assert(false);

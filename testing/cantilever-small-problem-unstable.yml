@@ -1,27 +1,27 @@
 setup:
-  CFL: 0.9 # 1.917
-  n_max: 100000000
-  t_max:  10
+  CFL: 0.9
+  n_max: 10000
+  t_max:  5
   n_write: 10 # 200
   n_threads: 1
   save_csv : true
   gravity_enabled: false
   #gravity_acc: [0, 3000,-3000]
   check_energy_balance: true
-  rayleigh_damping_mass_enabled: false
-  alpha_rayleigh: 0.05
+  rayleigh_damping_mass_enabled: true
+  alpha_rayleigh: 1
   borehole_included: true
 
 bc: 
   case: "cantilever"
-  orientation_base_euler_angles_xyz_deg: [0, 0, 0]
-  #orientation_base_euler_angles_xyz_deg: [0,0, 45]
+  #orientation_base_euler_angles_xyz_deg: [0, 0, 0]
+  orientation_base_euler_angles_xyz_deg: [0,0, 45]
 
   
 loads:
   point_loads_rel_to_base_orientation: true
   point_loads:
-   - R: [0, 0, 0,200, 0,0]
+   - R: [0, 0, 0,0,0, 0]
      rel_loc: 1
   #  - R: [0, 0, 100,100, 10,-5]
   #    rel_loc: 1
@@ -35,7 +35,7 @@ properties:
  
 geometry:
   L0: 10
-  N: 2
+  N: 20
   D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 

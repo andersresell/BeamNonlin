@@ -12,7 +12,7 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
     calc_dt(config, geometry);
     const Index n_steps = config.get_n_steps();
 
-    // calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
+    calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
 
     printf("\n"
            "-----------------Starting simulation----------------\n"
@@ -20,8 +20,6 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
            "for a total time of %f seconds\n"
            "--------------------------------------------------------\n",
            config.dt, n_steps, config.dt * n_steps);
-
-    // assemble(config, geometry, beam_sys); //?
 
     Timer timer;
 
@@ -33,7 +31,7 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
         config.t = n * config.dt;
         config.n = n;
 
-        // calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
+        calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
 
         // remove later
         n_glob = n;
@@ -52,12 +50,11 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
         save_csv(config, geometry, beam_sys);
 
         // Debug stuff
-        constexpr bool set_disp = true;
+        constexpr bool set_disp = false;
         if (set_disp && n == 0)
         {
             Index N = geometry.get_N();
-            cout << "SETTING DISP!\n";
-            Scalar u_new = -1.0 * (n + 1) * 0.3;
+
             assert(geometry.get_N() == 2);
             // beam_system.u[1].trans = {0, u_new, 0};
 
@@ -79,17 +76,15 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
             T = triad_from_euler_angles(10 * M_PI / 180, 0, 0);
             T = triad_from_euler_angles(0, 0, 45 * M_PI / 180);
 
-            // cout << "T \n"
-            //      << T << endl;
             beam_sys.d_trans[0] = Vec3{0, 0, 0};
             beam_sys.d_trans[1] = Vec3{0, 0, 0};
 
             // beam_sys.d_rot[0].from_matrix(U);
             // beam_sys.d_rot[N - 1].from_matrix(T);
             // beam_sys.v_rot[0] = Vec3::Zero();
-            Vec3 omega_u = {100, 1, 0};
-            cout << "omega_mag_orig " << omega_u.norm() << endl;
-            beam_sys.v_rot[N - 1] = omega_u;
+            // cout << "omega_mag_orig " << omega_u.norm() << endl;
+            beam_sys.v_rot[N - 1] = {10000, 0, 0};
+            // beam_sys.v_trans[N - 1] = {1000, 0, 0};
         }
 
         step_explicit(config, geometry, borehole, beam_sys);
@@ -177,12 +172,16 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
     }
 
-    if (check_energy_balance)
-    {
-        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
-                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
-    }
+    // bool half_step = false;
 
+    // if (half_step)
+
+    //     for (Index i = 0; i < N; i++)
+    //     {
+    //         v_trans[i] += dt / M[i] * (R_ext_trans[i] - R_int_trans[i]);
+    //         delta_d_trans[i] = dt * v_trans[i];
+    //     }
+    // else
     // newmark beta with beta=0, gamma=1/2 (central difference)
     for (Index i = 0; i < N; i++)
     {
@@ -213,8 +212,8 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         }
     }
 
-    /*Update internal and external forces*/
-    // assemble(config, geometry, beam_sys);
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config, geometry, beam_sys);
 
     if (check_energy_balance)
     {
@@ -222,10 +221,18 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
                             R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
     }
 
-    /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
-    for (Index i = 0; i < N; i++)
+    /*Update internal and external forces*/
+    assemble(config, geometry, beam_sys);
+    if (rayleigh_damping_mass_enabled)
     {
-        m_rot[i] = 0.5 * (m_rot[i] + R_ext_rot[i] - R_int_rot[i]);
+        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
+                                               J_u.data(), d_rot.data(), v_rot.data(), R_int_rot.data());
+    }
+
+    if (check_energy_balance)
+    {
+        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
+                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
     }
 
     /*Update translation velocities and the translational accelerations */
@@ -241,16 +248,33 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     {
         const Quaternion &q = d_rot[i];
         const Mat3 U_np = q.to_matrix(); // maybe optimize later
-        const Vec3 &m = m_rot[i];        // Moment at t_{n+1/2}
+        Vec3 &m = m_rot[i];              // Moment at t_{n+1/2}
+        const Vec3 m_np = R_ext_rot[i] - R_int_rot[i];
+        /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
+        const Vec3 m_half = 0.5 * (m + m_np);
+        m = m_np; // Update moment
+        // if (i == 1)
+        //     cout << "m_half\n"
+        //          << m_half << endl;
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
         const Mat3 &J = J_u[i].asDiagonal();
         const Vec3 &L_n = L_rot[i];
 
         const Vec3 omega_u_old = omega_u;
-        omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m);
-        alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
+        omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m_half);
+        // cout << "omega_u\n " << omega_u << endl;
+#ifndef NDEBUG
+        Vec3 L_np = U_np * J * omega_u;
+        Vec3 res = L_np - L_n - dt * m_half;
+        assert(is_close(res.norm(), 0.0));
+#endif
+        alpha_u = -alpha_u + 2 / dt * (omega_u - omega_u_old); // beta = 0.5 (not recommended by Simo, but seems to work better)
+        // alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
     }
+
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config, geometry, beam_sys);
 
     if (check_energy_balance)
     {
@@ -364,12 +388,6 @@ void calc_static_loads(const Config &config, const Geometry &geometry,
     const Vec3 &g = config.gravity_acc;
     const Scalar rho = config.rho;
 
-    cout << "remove later\n";
-    cout << "t=" << config.t << endl;
-    Scalar factor = 10;
-    if (config.t > 0.3)
-        factor = 0;
-    cout << "amplitude = " << sin(config.t * factor) << endl;
     for (Index ie = 0; ie < Ne; ie++)
     {
         if (gravity_enabled)
@@ -388,9 +406,9 @@ void calc_static_loads(const Config &config, const Geometry &geometry,
     Mat3 R_base = config.point_loads_rel_to_base_orientation ? config.bc_orientation_base.to_matrix() : Mat3::Identity();
     for (const PointLoad &pl : config.R_point_static)
     {
-        R_static_trans[pl.i] += R_base * pl.load_trans * sin(config.t * factor);
+        R_static_trans[pl.i] += R_base * pl.load_trans;
 
-        R_static_rot[pl.i] += R_base * pl.load_rot * sin(config.t * factor);
+        R_static_rot[pl.i] += R_base * pl.load_rot; // * sin(config.t * 10);
     }
 }
 
