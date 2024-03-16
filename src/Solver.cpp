@@ -153,6 +153,8 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     vector<Vec3> &v_rot = beam_sys.v_rot;
     vector<Vec3> &a_trans = beam_sys.a_trans;
     vector<Vec3> &a_rot = beam_sys.a_rot;
+    vector<Vec3> &L_rot = beam_sys.L_rot;
+    vector<Vec3> &m_rot = beam_sys.m_rot;
     vector<Vec3> &R_int_trans = beam_sys.R_int_trans;
     vector<Vec3> &R_int_rot = beam_sys.R_int_rot;
     vector<Vec3> &R_ext_trans = beam_sys.R_ext_trans;
@@ -179,17 +181,20 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
         const Mat3 U_n = q.to_matrix(); // Copy of orientation at t_n. Optimize this later maybe.
+        L_rot[i] = U_n * J * omega_u;   // Storing angular momentum at t_n for velocity update
         const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
         q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
         const Mat3 U_np = q.to_matrix();       // maybe optimize later
-
-        const Vec3 R_rot = R_ext_rot[i] - R_int_rot[i]; // Assuming that this moment is evaluated at t_{n+1/2} and already rotated to body frame
-
-        // omega_u = Vec3{U_np.transpose() * (U_n * Vec3{J.array() * omega_u.array()}) + dt * R_rot_u}.array() / J.array();
-        omega_u = J.inverse() * U_np.transpose() * (U_n * J * omega_u + dt * R_rot);
     }
+
     /*Update internal and external forces*/
     assemble(config, geometry, beam_sys);
+
+    /*Evaluate moment at t_{n+1/2}*/
+    for (Index i = 0; i < N; i++)
+    {
+        m_rot[i] = 0.5 * (m_rot[i] + R_ext_rot[i] - R_int_rot[i]);
+    }
 
     /*Update translation velocities and the translational accelerations */
     for (Index i = 0; i < N; i++)
@@ -197,6 +202,24 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
         v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
         a_trans[i] = a_trans_new;
+    }
+
+    // rotations: Simo and Wong algorithm
+    for (Index i = 0; i < N; i++)
+    {
+
+        const Quaternion &q = d_rot[i];
+        const Mat3 U_np = q.to_matrix(); // maybe optimize later
+        const Vec3 &m = m_rot[i];        // Moment at t_{n+1/2}
+
+        Vec3 &omega_u = v_rot[i];
+        Vec3 &alpha_u = a_rot[i];
+        const Vec3 &J = J_u[i].asDiagonal();
+        const Vec3 &L_n = L_rot[i];
+        const Vec3 omega_u_old = omega_u;
+        omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m);
+
+        alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
     }
 
     if (check_energy_balance)
