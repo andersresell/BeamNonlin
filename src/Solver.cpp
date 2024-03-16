@@ -166,11 +166,32 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     Scalar &W_int = beam_sys.W_int;
     Scalar &W_ext = beam_sys.W_ext;
     Scalar &KE = beam_sys.KE;
+    vector<Vec3> &delta_d_trans = beam_sys.delta_d_trans; /*Only used if energy balance is checked*/
+    vector<Vec3> &delta_d_rot = beam_sys.delta_d_rot;     /*Only used if energy balance is checked*/
+    if (check_energy_balance)
+    {
+        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
+    }
+    else
+    {
+        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
+    }
+
+    if (check_energy_balance)
+    {
+        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
+                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
+    }
 
     // newmark beta with beta=0, gamma=1/2 (central difference)
     for (Index i = 0; i < N; i++)
     {
-        d_trans[i] += dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
+        const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
+        d_trans[i] += delta_d;
+        if (check_energy_balance)
+        {
+            delta_d_trans[i] = delta_d;
+        }
     }
 
     // rotations: Simo and Wong algorithm
@@ -180,17 +201,28 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         const Mat3 &J = J_u[i].asDiagonal();
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
-        const Mat3 U_n = q.to_matrix(); // Copy of orientation at t_n. Optimize this later maybe.
-        L_rot[i] = U_n * J * omega_u;   // Storing angular momentum at t_n for velocity update
+        // const Mat3 U_n = q.to_matrix(); // Copy of orientation at t_n. Optimize this later maybe.
+        // L_rot[i] = U_n * J * omega_u;   // Storing angular momentum at t_n for velocity update
+        L_rot[i] = q.rotate_vector(J * omega_u); // Storing angular momentum L = U*J_u*omega_u at t_n for velocity update
         const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
         q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
-        const Mat3 U_np = q.to_matrix();       // maybe optimize later
+
+        if (check_energy_balance)
+        {
+            delta_d_rot[i] = q.rotate_vector(theta_u); // delta_d is stored in inertial frame
+        }
     }
 
     /*Update internal and external forces*/
-    assemble(config, geometry, beam_sys);
+    // assemble(config, geometry, beam_sys);
 
-    /*Evaluate moment at t_{n+1/2}*/
+    if (check_energy_balance)
+    {
+        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
+                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
+    }
+
+    /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
     for (Index i = 0; i < N; i++)
     {
         m_rot[i] = 0.5 * (m_rot[i] + R_ext_rot[i] - R_int_rot[i]);
@@ -207,18 +239,16 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     // rotations: Simo and Wong algorithm
     for (Index i = 0; i < N; i++)
     {
-
         const Quaternion &q = d_rot[i];
         const Mat3 U_np = q.to_matrix(); // maybe optimize later
         const Vec3 &m = m_rot[i];        // Moment at t_{n+1/2}
-
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
-        const Vec3 &J = J_u[i].asDiagonal();
+        const Mat3 &J = J_u[i].asDiagonal();
         const Vec3 &L_n = L_rot[i];
+
         const Vec3 omega_u_old = omega_u;
         omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m);
-
         alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
     }
 
