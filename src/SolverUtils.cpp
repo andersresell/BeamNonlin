@@ -10,6 +10,7 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
     v_trans.resize(N, Vec3::Zero());
     v_rot.resize(N, Vec3::Zero());
     a_rot.resize(N, Vec3::Zero());
+    a_trans.resize(N, Vec3::Zero());
     R_int_trans.resize(N, Vec3::Zero());
     R_int_rot.resize(N, Vec3::Zero());
     R_ext_trans.resize(N, Vec3::Zero());

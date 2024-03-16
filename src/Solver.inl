@@ -344,9 +344,6 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
         beam_system.R_ext_trans[i] = beam_system.R_static_trans[i];
         beam_system.R_ext_rot[i] = beam_system.R_static_rot[i];
     }
-    DEBUG_ONLY(
-        print_std_vector(beam_system.R_int_trans, "R int trans");
-        print_std_vector(beam_system.R_int_rot, "R int rot"););
 
 #pragma omp parallel for
     /*even elements*/

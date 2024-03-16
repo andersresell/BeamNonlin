@@ -151,6 +151,7 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     vector<Quaternion> &d_rot = beam_sys.d_rot;
     vector<Vec3> &v_trans = beam_sys.v_trans;
     vector<Vec3> &v_rot = beam_sys.v_rot;
+    vector<Vec3> &a_trans = beam_sys.a_trans;
     vector<Vec3> &a_rot = beam_sys.a_rot;
     vector<Vec3> &R_int_trans = beam_sys.R_int_trans;
     vector<Vec3> &R_int_rot = beam_sys.R_int_rot;
@@ -164,87 +165,39 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     Scalar &W_ext = beam_sys.W_ext;
     Scalar &KE = beam_sys.KE;
 
-    // Update forces here
+    // newmark beta with beta=0, gamma=1/2 (central difference)
+    for (Index i = 0; i < N; i++)
+    {
+        d_trans[i] += dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
+    }
 
     // rotations: Simo and Wong algorithm
-    if (true)
-        for (Index i = 0; i < N; i++)
-        {
-            Quaternion &q = d_rot[i];
-            const Mat3 &J = J_u[i].asDiagonal();
-            Vec3 &omega_u = v_rot[i];
-            Vec3 &alpha_u = a_rot[i];
-            const Mat3 U_n = q.to_matrix(); // Copy of orientation at t_n. Optimize this later maybe.
-            const Vec3 theta_u = dt * omega_u + dt * dt / 2 * alpha_u;
-            q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
-            const Mat3 U_np = q.to_matrix();       // maybe optimize later
+    for (Index i = 0; i < N; i++)
+    {
+        Quaternion &q = d_rot[i];
+        const Mat3 &J = J_u[i].asDiagonal();
+        Vec3 &omega_u = v_rot[i];
+        Vec3 &alpha_u = a_rot[i];
+        const Mat3 U_n = q.to_matrix(); // Copy of orientation at t_n. Optimize this later maybe.
+        const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
+        q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
+        const Mat3 U_np = q.to_matrix();       // maybe optimize later
 
-            const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i]; // Assuming that this moment is evaluated at t_{n+1/2} and already rotated to body frame
-            cout << "theta_u deg " << theta_u.norm() * 180 / M_PI << endl;
+        const Vec3 R_rot = R_ext_rot[i] - R_int_rot[i]; // Assuming that this moment is evaluated at t_{n+1/2} and already rotated to body frame
 
-            Vec3 Ln = U_n * J * omega_u;
-            Scalar EKn = 0.5 * omega_u.dot(J * omega_u);
+        // omega_u = Vec3{U_np.transpose() * (U_n * Vec3{J.array() * omega_u.array()}) + dt * R_rot_u}.array() / J.array();
+        omega_u = J.inverse() * U_np.transpose() * (U_n * J * omega_u + dt * R_rot);
+    }
+    /*Update internal and external forces*/
+    assemble(config, geometry, beam_sys);
 
-            // omega_u = Vec3{U_np.transpose() * (U_n * Vec3{J.array() * omega_u.array()}) + dt * R_rot_u}.array() / J.array();
-            omega_u = J.inverse() * U_np.transpose() * (U_n * J * omega_u + dt * R_rot_u);
-
-            Vec3 Lnp = U_np * J * omega_u;
-            Scalar EKnp = 0.5 * omega_u.dot(J * omega_u);
-            cout
-                << "Ln\n"
-                << Ln << endl
-                << "Lnp\n"
-                << Lnp << endl
-                << "diff \n"
-                << Lnp - Ln << endl;
-            cout << "EKn " << EKn << endl
-                 << "EKnp " << EKnp << endl;
-            cout << "diff " << EKnp - EKn << endl;
-        }
-    else
-        for (Index i = 0; i < N; i++)
-        {
-            if (i == 0)
-                continue;
-            /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
-            const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
-
-            Vec3 &omega_u = v_rot[i];
-
-            Mat3 J = J_u[i].asDiagonal();
-
-            Vec3 rot_term = skew_symmetric(omega_u) * J * omega_u;
-
-            // Vec3 omega_u_dot_new;
-            // omega_u_dot_new.x() = (R_rot_u.x() - (Ju.z() - Ju.y()) * omega_u.y() * omega_u.z()) / Ju.x();
-            // omega_u_dot_new.y() = (R_rot_u.y() - (Ju.x() - Ju.z()) * omega_u.x() * omega_u.z()) / Ju.y();
-            // omega_u_dot_new.z() = (R_rot_u.z() - (Ju.y() - Ju.x()) * omega_u.x() * omega_u.y()) / Ju.z();
-
-            const Vec3 omega_u_dot = (R_rot_u - rot_term).array() / J_u[i].array();
-
-            // cout << "diff: \n"
-            //      << omega_u_dot - omega_u_dot_new << endl;
-
-            // const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
-            //  Scalar tol = 0.00001;
-            //  if (i != 0 && abs(omega_u[0]) > tol)
-            //  {
-            //      cout << "omega_u \n"
-            //           << omega_u << endl;
-            //      assert(false);
-            //  }
-            omega_u += dt * omega_u_dot;
-            Vec3 theta_u = dt * omega_u;
-            Quaternion &q = d_rot[i];
-
-            // const Vec3 omega = q.rotate_vector_reversed(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
-
-            // assert(is_close(omega_u.y(), 0, 1e-4) && is_close(omega_u.z(), 0, 1e-4));
-            // q.compound_rotate(dt * omega);
-            q.exponential_map_body_frame(theta_u);
-            Scalar norm = q.norm();
-            assert(is_close(norm, 1.0));
-        }
+    /*Update translation velocities and the translational accelerations */
+    for (Index i = 0; i < N; i++)
+    {
+        const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
+        v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
+        a_trans[i] = a_trans_new;
+    }
 
     if (check_energy_balance)
     {

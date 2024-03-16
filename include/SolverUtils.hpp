@@ -19,6 +19,7 @@ struct BeamSystem
     vector<Vec3> d_trans;
     vector<Quaternion> d_rot;
     vector<Vec3> v_trans;
+    vector<Vec3> a_trans;
     vector<Vec3> v_rot; // angular velocity in body frame
     vector<Vec3> a_rot; // angular acceleration in body frame
 
