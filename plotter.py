@@ -10,7 +10,7 @@ import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 SMALL_VAL = 1e-6
-MAX_TRIADS = 6
+MAX_TRIADS = 20# 6
 MAX_NODES=1000
 
 #These are 1-indexed:

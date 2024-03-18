@@ -13,7 +13,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build_debug/BeamNonlin",
             "args": [
-                "cantilever-small-problem-unstable.yml"
+                "cantilever.yml"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/testing",

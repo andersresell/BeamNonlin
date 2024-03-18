@@ -78,7 +78,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     assert(is_close(ul, ln - l0));
 
     const Scalar theta_l1 = asin(0.5 * (-t3.dot(e2) + t2.dot(e3)));
-    const Scalar theta_l2 = asin(0.5 * (-t2.dot(e1) + t1.dot(e2)));
+    Scalar theta_l2 = asin(0.5 * (-t2.dot(e1) + t1.dot(e2)));
     const Scalar theta_l3 = asin(0.5 * (-t3.dot(e1) + t1.dot(e3)));
     const Scalar theta_l4 = asin(0.5 * (-u3.dot(e2) + u2.dot(e3)));
     const Scalar theta_l5 = asin(0.5 * (-u2.dot(e1) + u1.dot(e2)));
@@ -93,11 +93,12 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
         cout << "theta_l4 " << theta_l4 << endl;
         cout << "theta_l5 " << theta_l5 << endl;
         cout << "theta_l6 " << theta_l6 << endl;);
+
     // cout << "n_glob " << n_glob << endl;
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-#define MAX_ANGLE 80 * M_PI / 180
+#define MAX_ANGLE 0.1 * M_PI / 180
     assert(abs(theta_l1) < MAX_ANGLE);
     assert(abs(theta_l2) < MAX_ANGLE);
     assert(abs(theta_l3) < MAX_ANGLE);
@@ -174,10 +175,10 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
         cout << "R_int_e:\n"
              << R_int_e << endl;);
 
-    // R_int_trans[ie] += R_int_e.segment(0, 3);
-    // R_int_rot[ie] += R_int_e.segment(3, 3);
-    // R_int_trans[ie + 1] += R_int_e.segment(6, 3);
-    // R_int_rot[ie + 1] += R_int_e.segment(9, 3);
+    R_int_trans[ie] += R_int_e.segment(0, 3);
+    R_int_rot[ie] += R_int_e.segment(3, 3);
+    R_int_trans[ie + 1] += R_int_e.segment(6, 3);
+    R_int_rot[ie + 1] += R_int_e.segment(9, 3);
 }
 
 inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
@@ -573,20 +574,20 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     {
         R_int_trans[i] += alpha * M[i] * v_trans[i];
     }
-// Test with rotational dofs also?
-#pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
-        Scalar alpha_rot = 1 * alpha;
-        Vec3 R_damp_rot = alpha_rot * J_u[i].array() * v_rot[i].array();
-        R_damp_rot = d_rot->rotate_vector(R_damp_rot);
-        // if (i == 10 && n_glob % 100 == 0)
-        // {
-        //     cout << "M_w_1 prior: " << R_int_rot[i].x() << endl;
-        //     cout << "M damp w_1: " << R_damp_rot.x() << endl;
-        // }
-        R_int_rot[i] += R_damp_rot;
-    }
+    // Test with rotational dofs also?
+    // #pragma omp parallel for
+    //     for (Index i = 0; i < N; i++)
+    //     {
+    //         Scalar alpha_rot = 0.1 * alpha;
+    //         Vec3 R_damp_rot = alpha_rot * J_u[i].array() * v_rot[i].array();
+    //         R_damp_rot = d_rot->rotate_vector(R_damp_rot);
+    //         // if (i == 10 && n_glob % 100 == 0)
+    //         // {
+    //         //     cout << "M_w_1 prior: " << R_int_rot[i].x() << endl;
+    //         //     cout << "M damp w_1: " << R_damp_rot.x() << endl;
+    //         // }
+    //         R_int_rot[i] += R_damp_rot;
+    //     }
 }
 
 // inline void step_central_differences(Scalar dt, Index N, Vec3Quat *__restrict__ u, Vec3Vec3 *__restrict__ v,

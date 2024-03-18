@@ -183,6 +183,9 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     //     }
     // else
     // newmark beta with beta=0, gamma=1/2 (central difference)
+
+    const Scalar gamma_newmark = 0.5; // remove later
+
     for (Index i = 0; i < N; i++)
     {
         const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
@@ -239,7 +242,8 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     for (Index i = 0; i < N; i++)
     {
         const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
-        v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
+        // v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
+        v_trans[i] += dt * ((1 - gamma_newmark) * a_trans[i] + gamma_newmark * a_trans_new);
         a_trans[i] = a_trans_new;
     }
 
@@ -251,7 +255,9 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         Vec3 &m = m_rot[i];              // Moment at t_{n+1/2}
         const Vec3 m_np = R_ext_rot[i] - R_int_rot[i];
         /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
-        const Vec3 m_half = 0.5 * (m + m_np);
+        // const Vec3 m_half = 0.5 * (m + m_np);
+        const Vec3 m_half = ((1 - gamma_newmark) * m + gamma_newmark * m_np);
+
         m = m_np; // Update moment
         // if (i == 1)
         //     cout << "m_half\n"
@@ -269,7 +275,7 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         Vec3 res = L_np - L_n - dt * m_half;
         assert(is_close(res.norm(), 0.0));
 #endif
-        alpha_u = -alpha_u + 2 / dt * (omega_u - omega_u_old); // beta = 0.5 (not recommended by Simo, but seems to work better)
+        alpha_u = 2 / dt * (omega_u - omega_u_old) - alpha_u; // beta = 0.5 (not recommended by Simo, but seems to work better)
         // alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
     }
 
