@@ -3,8 +3,8 @@
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 {
-    cout << "testing battini.. \n";
-    BattiniBeam::test();
+    // cout << "testing battini.. \n";
+    // BattiniBeam::test();
 
     create_output_dir(config);
     BeamSystem beam_sys{config, geometry};
@@ -89,8 +89,8 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
             // beam_sys.v_trans[N - 1] = {1000, 0, 0};
         }
 
-        step_explicit_SW(config, geometry, borehole, beam_sys);
-        // step_explicit_NMB(config, geometry, borehole, beam_sys);
+        // step_explicit_SW(config, geometry, borehole, beam_sys);
+        step_explicit_NMB(config, geometry, borehole, beam_sys);
 
         // calculate internal loads
         // assemble(config, geometry, beam_system);

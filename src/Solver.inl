@@ -230,7 +230,16 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
         cout << "R_int_e_l:\n"
              << R_int_e_l << endl;);
 
-    const Vec12 R_int_e = F_transpose * R_int_e_l;
+    Vec12 R_int_e = F_transpose * R_int_e_l;
+
+    const Scalar area = M_PI * (ro_e * ro_e - ri_e * ri_e);
+    const Scalar Iy = M_PI / 4 * (ro_e * ro_e * ro_e * ro_e - ri_e * ri_e * ri_e * ri_e);
+    const Scalar Iz = Iy;
+    const Scalar It = 2 * Iy;
+    Vec12 R_int_battini = BattiniBeam::global_internal_forces(ie, X, d_trans, d_rot, area, Iy, Iz, It, youngs, G);
+
+    // R_int_e = R_int_battini;
+
     assert(R_int_e.allFinite());
     DEBUG_ONLY(
         cout << "R_int_e:\n"
@@ -250,8 +259,11 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     R_int_trans[ie + 1] += R_damp.segment(6, 3);
     R_int_rot[ie + 1] += R_damp.segment(9, 3);
 
-    // Vec12 R_int_battini = BattiniBeam::global_internal_forces(ie, X, d_trans, d_rot, ri_e, ro_e, youngs, G);
-    // DEBUG_ONLY(cout << "R_battini " << R_int_battini << endl;);
+    DEBUG_ONLY(cout << "R_battini " << R_int_battini << endl;);
+    Vec12 diff = R_int_e - R_int_battini;
+    DEBUG_ONLY(cout << "diff \n"
+                    << diff << endl;);
+    assert(diff.norm() < 1e-1);
 }
 
 inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,

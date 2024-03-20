@@ -197,13 +197,13 @@ namespace BattiniBeam
         const Mat6_12 P = P_matrix(x1, x2, U1, U2);
         // cout << "P \n"
         //      << P << endl;
-        cout << "P norm " << P.norm() << endl;
+        // cout << "P norm " << P.norm() << endl;
         const Mat12 E = E_matrix(x1, x2, U1, U2);
         // cout << "E\n"
         //      << E << endl;
-        cout << "E norm " << E.norm() << endl;
+        // cout << "E norm " << E.norm() << endl;
         const Mat6_12 P_E_t = P * E.transpose();
-        cout << "P_E_t norm " << P_E_t.norm() << endl;
+        // cout << "P_E_t norm " << P_E_t.norm() << endl;
 
         Mat7_12 b_mat_g = Mat7_12::Zero();
         b_mat_g.row(0) = r_vec;
@@ -293,16 +293,16 @@ namespace BattiniBeam
         const Mat7_12 B_g = b_matrix_g(x1, x2, U1, U2);
         const Vec7 f_l_a = local_internal_forces_a(x1, x2, X1, X2, U1, U2, youngs, A, G, It, Iy, Iz);
 
-        cout << "B_g\n"
-             << B_g << endl;
-        cout << "norm B_g " << B_g.norm() << endl;
+        // cout << "B_g\n"
+        //      << B_g << endl;
+        // cout << "norm B_g " << B_g.norm() << endl;
         // for (Index i = 0; i < 7; i++)
         //     cout << "i=" << i << ", B_g_i norm " << B_g.row(i).norm() << endl;
         // cout << "f_l_a\n"
         //      << f_l_a << endl;
         const Vec12 f_g = B_g.transpose() * f_l_a;
-        cout << "f_g\n"
-             << f_g << endl;
+        // cout << "f_g\n"
+        //      << f_g << endl;
         return f_g;
     }
 

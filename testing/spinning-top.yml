@@ -1,16 +1,16 @@
 setup:
   CFL: 0.5
-  n_max: 3
-  t_max:  40
-  n_write: 10 # 200
-  n_threads: 1
+  n_max: 1000000
+  t_max:  100
+  n_write: 400 # 200
+  n_threads: 8
   save_csv : true
   gravity_enabled: false
   #gravity_acc: [0, 3000,-3000]
   check_energy_balance: true
-  rayleigh_damping_enabled: false
+  rayleigh_damping_enabled: true
   alpha_rayleigh:  0
-  beta_rayleigh:  0.001
+  beta_rayleigh:  0
   borehole_included: true
 
 bc: 
@@ -21,7 +21,7 @@ bc:
 loads:
   point_loads_rel_to_base_orientation: true
   point_loads:
-   - R: [0, 0, 10000,0,0,0]
+   - R: [0, 0, 0,3000,20000,0]
      rel_loc: 1
 
 properties:
@@ -30,8 +30,8 @@ properties:
   rho: 7000
  
 geometry:
-  L0: 10
-  N: 2
+  L0: 100
+  N: 100
   D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 
