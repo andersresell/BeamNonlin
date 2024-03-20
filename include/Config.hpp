@@ -19,8 +19,9 @@ struct Config
     bool point_loads_rel_to_base_orientation;
     bool check_energy_balance;
     Scalar energy_balance_tol;
-    bool rayleigh_damping_mass_enabled;
+    bool rayleigh_damping_enabled;
     Scalar alpha_rayleigh;
+    Scalar beta_rayleigh;
     bool borehole_included;
 
     bool gravity_enabled = true;

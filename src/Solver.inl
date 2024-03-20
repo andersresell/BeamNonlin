@@ -2,9 +2,66 @@
 #pragma once
 #include "../include/Solver.hpp"
 
-inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
+inline Vec12 calc_approx_rayleigh_beta_damping(const Scalar beta, const Scalar ri, const Scalar ro, const Scalar l0,
+                                               const Scalar youngs, const Scalar G, const Mat3 &E,
+                                               const Mat3 &U1, const Mat3 &U2,
+                                               const Vec3 &v1, const Vec3 &v2, const Vec3 &omega1_u,
+                                               const Vec3 &omega2_u)
+{ /*Basing this on the formula R_damp_l = beta * k_l * v_l,
+ First the local velocity v_l is computed by rotating the global components,
+ then the local damping is computed, and finally the resulting force is
+ rotated to global components*/
+
+    const Vec3 v1_l = E.transpose() * v1;
+    const Vec3 v2_l = E.transpose() * v2;
+
+    const Vec3 omega1_l = E.transpose() * U1 * omega1_u;
+    const Vec3 omega2_l = E.transpose() * U2 * omega2_u;
+
+    const Scalar A = M_PI * (ro * ro - ri * ri);
+    const Scalar I = M_PI / 4 * (ro * ro * ro * ro - ri * ri * ri * ri);
+    const Scalar J = 2 * I;
+
+    const Mat4 k_EB = Mat4{{12, 6 * l0, -12, 6 * l0},
+                           {6 * l0, 4 * l0 * l0, -6 * l0, 2 * l0 * l0},
+                           {-12, -6 * l0, 12, -6 * l0},
+                           {6 * l0, 2 * l0 * l0,
+                            -6 * l0, 4 * l0 * l0}} *
+                      youngs * I / (l0 * l0 * l0);
+
+    const Scalar K = J; // cicular cross-section
+    const Mat2 k_tor = Mat2{{1, -1},
+                            {-1, 1}} *
+                       G * K / l0;
+    const Mat2 k_x = Mat2{{1, -1},
+                          {-1, 1}} *
+                     youngs * A / l0;
+
+    const Vec2 v_x = {v1_l.x(), v2_l.x()};
+    const Vec2 v_tor = {omega1_l.x(), omega2_l.x()};
+    const Vec4 v_y = {v1_l.y(), omega1_l.z(), v2_l.y(), omega2_l.z()};
+    const Vec4 v_z = {v1_l.z(), -omega1_l.y(), v2_l.z(), -omega2_l.y()};
+
+    const Vec2 f_x = beta * k_x * v_x;
+    const Vec2 f_tor = beta * k_tor * v_tor;
+    const Vec4 f_y = beta * k_EB * v_y;
+    const Vec4 f_z = beta * k_EB * v_z;
+
+    const Vec3 f1_l = {f_x[0], f_y[0], f_z[0]};
+    const Vec3 m1_l = {f_tor[0], -f_z[1], f_y[1]};
+    const Vec3 f2_l = {f_x[1], f_y[2], f_z[2]};
+    const Vec3 m2_l = {f_tor[1], -f_z[3], f_y[3]};
+
+    Vec12 R_damp;
+    R_damp << E * f1_l, E * m1_l, E * f2_l, E * m2_l;
+    return R_damp;
+}
+
+inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
                                       const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
-                                      Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G)
+                                      Vec3 *__restrict__ R_int_rot, const Scalar ri_e, const Scalar ro_e, const Scalar youngs,
+                                      const Scalar G, const Scalar beta_rayleigh, const Vec3 *__restrict__ v_trans,
+                                      const Vec3 *__restrict__ v_rot)
 {
 
     // assert(i&e < X.size() - 1);
@@ -41,7 +98,9 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     const Scalar l0 = (X2 - X1).norm();
     const Scalar ln = (X2 + d2 - (X1 + d1)).norm();
 
-    const Vec3 e1 = (X2 + d2 - (X1 + d1)) / ln;
+    Mat3 E;
+    E.col(0) = (X2 + d2 - (X1 + d1)) / ln;
+    const Vec3 &e1 = E.col(0);
     assert(is_close(e1.norm(), 1.0));
     DEBUG_ONLY(
         cout << "e1 = " << e1.transpose() << endl;);
@@ -62,12 +121,14 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
 
     // computing element unit vectors e2 and e3 by rotating the unit vector
     // r1 on to e1.
-    // const Vec3 e2 = r2 - r2.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
-    // const Vec3 e3 = r3 - r3.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
-
+    E.col(1) = r2 - r2.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
+    E.col(2) = r3 - r3.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
+    assert(is_orthogonal(E));
     //    cout << "r1.dot.e1 " << e1.dot(r1) << endl;
-    const Vec3 e2 = r2 - 0.5 * r2.dot(e1) * (e1 + r1);
-    const Vec3 e3 = r3 - 0.5 * r3.dot(e1) * (e1 + r1);
+    // E.col(1) = r2 - 0.5 * r2.dot(e1) * (e1 + r1);
+    // E.col(2) = r3 - 0.5 * r3.dot(e1) * (e1 + r1);
+    const Vec3 &e2 = E.col(1);
+    const Vec3 &e3 = E.col(2);
 
     // compute local displacements from global displacements.
     // Taking u_l = ln-l0 is not recommended since subtracting two large
@@ -162,7 +223,7 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
     //      << F.transpose() << endl;
 
     /*Calculate local internal forces based on linear 3D beam theory*/
-    const Vec7 R_int_e_l = calc_element_forces_local(ri_e, ro_e, l0, E, G, ul,
+    const Vec7 R_int_e_l = calc_element_forces_local(ri_e, ro_e, l0, youngs, G, ul,
                                                      theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
 
     DEBUG_ONLY(
@@ -175,10 +236,19 @@ inline void calc_element_inner_forces(Index ie, const Vec3 *__restrict__ X, cons
         cout << "R_int_e:\n"
              << R_int_e << endl;);
 
+    const Vec12 R_damp = calc_approx_rayleigh_beta_damping(beta_rayleigh, ri_e, ro_e, l0, youngs, G, E, U, T,
+                                                           v_trans[ie], v_trans[ie + 1], v_rot[ie], v_rot[ie + 1]);
+    DEBUG_ONLY(cout << "R_damp\n"
+                    << R_damp << endl;);
     R_int_trans[ie] += R_int_e.segment(0, 3);
     R_int_rot[ie] += R_int_e.segment(3, 3);
     R_int_trans[ie + 1] += R_int_e.segment(6, 3);
     R_int_rot[ie + 1] += R_int_e.segment(9, 3);
+
+    R_int_trans[ie] += R_damp.segment(0, 3);
+    R_int_rot[ie] += R_damp.segment(3, 3);
+    R_int_trans[ie + 1] += R_damp.segment(6, 3);
+    R_int_rot[ie + 1] += R_damp.segment(9, 3);
 }
 
 inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
@@ -289,6 +359,7 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     const vector<Vec3> &X = geometry.get_X();
     const Scalar E = config.E;
     const Scalar G = config.get_G();
+    const Scalar beta_rayleigh = config.beta_rayleigh;
 
 /*Start by setting internal forces to zero and external forces to the static loads*/
 #pragma omp parallel for
@@ -307,7 +378,8 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
 
         calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
                                   beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
-                                  geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+                                  geometry.ri_e(ie), geometry.ro_e(ie), E, G, beta_rayleigh,
+                                  beam_system.v_trans.data(), beam_system.v_rot.data());
     }
 #pragma omp parallel for
     /*Odd elements*/
@@ -316,7 +388,8 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
 
         calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
                                   beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
-                                  geometry.ri_e(ie), geometry.ro_e(ie), E, G);
+                                  geometry.ri_e(ie), geometry.ro_e(ie), E, G, beta_rayleigh,
+                                  beam_system.v_trans.data(), beam_system.v_rot.data());
     }
 
     /*------------------------------------------  # - R: [0,0,0, 0, 600000, 0]
@@ -578,7 +651,7 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     // #pragma omp parallel for
     //     for (Index i = 0; i < N; i++)
     //     {
-    //         Scalar alpha_rot = 0.1 * alpha;
+    //         Scalar alpha_rot = 1 * alpha;
     //         Vec3 R_damp_rot = alpha_rot * J_u[i].array() * v_rot[i].array();
     //         R_damp_rot = d_rot->rotate_vector(R_damp_rot);
     //         // if (i == 10 && n_glob % 100 == 0)
@@ -811,8 +884,10 @@ inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSy
     case BC_Case::SIMPLY_SUPPORTED:
         d_trans[0] = {0, 0, 0};
         v_trans[0] = {0, 0, 0};
-        d_trans[N - 1] = {0, 0, 0};
-        v_trans[N - 1] = {0, 0, 0};
+        d_trans[N - 1].y() = 0;
+        d_trans[N - 1].z() = 0;
+        v_trans[N - 1].y() = 0;
+        v_trans[N - 1].z() = 0;
         assert(false); // fix delta d trans and rot
         break;
     default:

@@ -59,12 +59,16 @@ using Scalar = double;
 
 using Index = uint32_t;
 
+using Vec2 = Eigen::Vector<Scalar, 2>;
 using Vec3 = Eigen::Vector<Scalar, 3>;
+using Vec4 = Eigen::Vector<Scalar, 4>;
 using Vec6 = Eigen::Vector<Scalar, 6>;
 using Vec7 = Eigen::Vector<Scalar, 7>;
 using Vec12 = Eigen::Vector<Scalar, 12>;
 
-using Mat3 = Eigen::Matrix3<Scalar>;
+using Mat2 = Eigen::Matrix<Scalar, 2, 2>;
+using Mat3 = Eigen::Matrix<Scalar, 3, 3>;
+using Mat4 = Eigen::Matrix<Scalar, 4, 4>;
 
 template <typename T>
 int sign(T val)

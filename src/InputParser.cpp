@@ -59,10 +59,16 @@ void InputParser::parse_yaml_config_options(Config &config) const
     {
         config.energy_balance_tol = read_optional_option<Scalar>(root_name_setup, "energy_balance_tol", 0.01);
     }
-    config.rayleigh_damping_mass_enabled = read_optional_option<bool>(root_name_setup, "rayleigh_damping_mass_enabled", false);
-    if (config.rayleigh_damping_mass_enabled)
+    config.rayleigh_damping_enabled = read_optional_option<bool>(root_name_setup, "rayleigh_damping_enabled", false);
+    if (config.rayleigh_damping_enabled)
     {
         config.alpha_rayleigh = read_required_option<Scalar>(root_name_setup, "alpha_rayleigh");
+        config.beta_rayleigh = read_required_option<Scalar>(root_name_setup, "beta_rayleigh");
+    }
+    else
+    {
+        config.alpha_rayleigh = 0;
+        config.beta_rayleigh = 0;
     }
     config.borehole_included = read_optional_option<bool>(root_name_setup, "borehole_included", false);
 
@@ -130,6 +136,10 @@ void InputParser::parse_bcs_and_loads(const Geometry &geometry, Config &config) 
             {
                 config.bc_orientation_base.from_matrix(Mat3::Identity());
             }
+        }
+        else
+        {
+            assert(false);
         }
     }
     catch (exception &e)

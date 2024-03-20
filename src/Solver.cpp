@@ -157,7 +157,7 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     const vector<Scalar> &M = beam_sys.M;
     const vector<Vec3> &J_u = beam_sys.J_u;
     const bool check_energy_balance = config.check_energy_balance;
-    const bool rayleigh_damping_mass_enabled = config.rayleigh_damping_mass_enabled;
+    const bool rayleigh_damping_enabled = config.rayleigh_damping_enabled;
     Scalar &W_int = beam_sys.W_int;
     Scalar &W_ext = beam_sys.W_ext;
     Scalar &KE = beam_sys.KE;
@@ -224,7 +224,7 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
 
     /*Update internal and external forces*/
     assemble(config, geometry, beam_sys);
-    if (rayleigh_damping_mass_enabled)
+    if (rayleigh_damping_enabled)
     {
         add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
                                                J_u.data(), d_rot.data(), v_rot.data(), R_int_rot.data());
@@ -301,7 +301,7 @@ void step_explicit_old(Config &config, const Geometry &geometry, const Borehole 
     const vector<Scalar> &M = beam_sys.M;
     const vector<Vec3> &J_u = beam_sys.J_u;
     const bool check_energy_balance = config.check_energy_balance;
-    const bool rayleigh_damping_mass_enabled = config.rayleigh_damping_mass_enabled;
+    const bool rayleigh_damping_enabled = config.rayleigh_damping_enabled;
     Scalar &W_int = beam_sys.W_int;
     Scalar &W_ext = beam_sys.W_ext;
     Scalar &KE = beam_sys.KE;
@@ -344,7 +344,7 @@ void step_explicit_old(Config &config, const Geometry &geometry, const Borehole 
     /*Updating external and internal forces*/
     assemble(config, geometry, beam_sys);
 
-    if (rayleigh_damping_mass_enabled)
+    if (rayleigh_damping_enabled)
     {
         add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
                                                J_u.data(), d_rot.data(), v_rot.data(), R_int_rot.data());

@@ -8,7 +8,7 @@ setup:
   gravity_enabled: false
   #gravity_acc: [0, 0, 0]
   check_energy_balance: true
-  rayleigh_damping_mass_enabled: true
+  rayleigh_damping_enabled: true
   alpha_rayleigh: 3
 
 bc: 
