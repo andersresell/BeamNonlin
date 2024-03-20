@@ -87,7 +87,7 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
             // beam_sys.v_trans[N - 1] = {1000, 0, 0};
         }
 
-        step_explicit(config, geometry, borehole, beam_sys);
+        step_explicit_NMB(config, geometry, borehole, beam_sys);
 
         // calculate internal loads
         // assemble(config, geometry, beam_system);
@@ -138,7 +138,128 @@ void calc_dt(Config &config, const Geometry &geometry)
          << "----------------------------------------------------------\n";
 }
 
-void step_explicit(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys)
+void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys)
+{
+    const Scalar dt = config.dt;
+    const Index N = geometry.get_N();
+    vector<Vec3> &d_trans = beam_sys.d_trans;
+    vector<Quaternion> &d_rot = beam_sys.d_rot;
+    vector<Vec3> &v_trans = beam_sys.v_trans;
+    vector<Vec3> &v_rot = beam_sys.v_rot;
+    vector<Vec3> &a_trans = beam_sys.a_trans;
+    vector<Vec3> &a_rot = beam_sys.a_rot;
+    vector<Vec3> &L_rot = beam_sys.L_rot;
+    vector<Vec3> &m_rot = beam_sys.m_rot;
+    vector<Vec3> &R_int_trans = beam_sys.R_int_trans;
+    vector<Vec3> &R_int_rot = beam_sys.R_int_rot;
+    vector<Vec3> &R_ext_trans = beam_sys.R_ext_trans;
+    vector<Vec3> &R_ext_rot = beam_sys.R_ext_rot;
+    const vector<Scalar> &M = beam_sys.M;
+    const vector<Vec3> &J_u = beam_sys.J_u;
+    const bool check_energy_balance = config.check_energy_balance;
+    const bool rayleigh_damping_enabled = config.rayleigh_damping_enabled;
+    Scalar &W_int = beam_sys.W_int;
+    Scalar &W_ext = beam_sys.W_ext;
+    Scalar &KE = beam_sys.KE;
+    vector<Vec3> &delta_d_trans = beam_sys.delta_d_trans; /*Only used if energy balance is checked*/
+    vector<Vec3> &delta_d_rot = beam_sys.delta_d_rot;     /*Only used if energy balance is checked*/
+    if (check_energy_balance)
+    {
+        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
+    }
+    else
+    {
+        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
+    }
+
+    for (Index i = 0; i < N; i++)
+    {
+        const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
+        d_trans[i] += delta_d;
+        if (check_energy_balance)
+        {
+            delta_d_trans[i] = delta_d;
+        }
+    }
+
+    // rotations:
+    for (Index i = 0; i < N; i++)
+    {
+        Quaternion &q = d_rot[i];
+        const Mat3 &J = J_u[i].asDiagonal();
+        Vec3 &omega_u = v_rot[i];
+        Vec3 &alpha_u = a_rot[i];
+        L_rot[i] = q.rotate_vector(J * omega_u); // Storing angular momentum L = U*J_u*omega_u at t_n for velocity update
+        const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
+        q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
+
+        if (check_energy_balance)
+        {
+            delta_d_rot[i] = q.rotate_vector(theta_u); // delta_d is stored in inertial frame
+        }
+    }
+
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config, geometry, beam_sys);
+
+    if (check_energy_balance)
+    {
+        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
+                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
+    }
+
+    /*Update internal and external forces*/
+    assemble(config, geometry, beam_sys);
+    if (rayleigh_damping_enabled)
+    {
+        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
+                                               J_u.data(), d_rot.data(), v_rot.data(), R_int_rot.data());
+    }
+
+    if (check_energy_balance)
+    {
+        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
+                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
+    }
+
+    /*Update translation velocities and the translational accelerations */
+    for (Index i = 0; i < N; i++)
+    {
+        const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
+        // v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
+        v_trans[i] += dt * 0.5 * (a_trans[i] + a_trans_new);
+        a_trans[i] = a_trans_new;
+    }
+
+    // rotations: Newmark body
+    for (Index i = 0; i < N; i++)
+    {
+        const Quaternion &q = d_rot[i];
+        const Mat3 &J = J_u[i].asDiagonal();
+        const Vec3 &L_n = L_rot[i];
+        Vec3 &omega_u = v_rot[i];
+        Vec3 &alpha_u = a_rot[i];
+
+        const Mat3 U_np = q.to_matrix(); // maybe optimize later
+        const Vec3 m = R_ext_rot[i] - R_int_rot[i];
+
+        const Vec3 omega_u_old = omega_u;
+        omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m_half);
+
+        alpha_u = 2 / dt * (omega_u - omega_u_old) - alpha_u; // beta = 0.5 (not recommended by Simo, but seems to work better)
+        // alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
+    }
+
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config, geometry, beam_sys);
+
+    if (check_energy_balance)
+    {
+        kinetic_energy_update(N, M.data(), J_u.data(), v_trans.data(), v_rot.data(), KE);
+    }
+}
+
+void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys)
 {
     const Scalar dt = config.dt;
     const Index N = geometry.get_N();
