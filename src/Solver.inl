@@ -159,7 +159,7 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-#define MAX_ANGLE 0.1 * M_PI / 180
+#define MAX_ANGLE 10 * M_PI / 180
     assert(abs(theta_l1) < MAX_ANGLE);
     assert(abs(theta_l2) < MAX_ANGLE);
     assert(abs(theta_l3) < MAX_ANGLE);
@@ -249,6 +249,9 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     R_int_rot[ie] += R_damp.segment(3, 3);
     R_int_trans[ie + 1] += R_damp.segment(6, 3);
     R_int_rot[ie + 1] += R_damp.segment(9, 3);
+
+    // Vec12 R_int_battini = BattiniBeam::global_internal_forces(ie, X, d_trans, d_rot, ri_e, ro_e, youngs, G);
+    // DEBUG_ONLY(cout << "R_battini " << R_int_battini << endl;);
 }
 
 inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,

@@ -3,6 +3,8 @@
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 {
+    cout << "testing battini.. \n";
+    BattiniBeam::test();
 
     create_output_dir(config);
     BeamSystem beam_sys{config, geometry};

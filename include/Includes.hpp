@@ -69,6 +69,13 @@ using Vec12 = Eigen::Vector<Scalar, 12>;
 using Mat2 = Eigen::Matrix<Scalar, 2, 2>;
 using Mat3 = Eigen::Matrix<Scalar, 3, 3>;
 using Mat4 = Eigen::Matrix<Scalar, 4, 4>;
+using Mat7 = Eigen::Matrix<Scalar, 7, 7>;
+using Mat12 = Eigen::Matrix<Scalar, 12, 12>;
+
+using Mat3_12 = Eigen::Matrix<Scalar, 3, 12>;
+using Mat12_3 = Eigen::Matrix<Scalar, 12, 3>;
+using Mat6_12 = Eigen::Matrix<Scalar, 6, 12>;
+using Mat7_12 = Eigen::Matrix<Scalar, 7, 12>;
 
 template <typename T>
 int sign(T val)
@@ -83,10 +90,10 @@ inline bool is_close(Scalar a, Scalar b, Scalar tol = SMALL_SCALAR)
     return abs(b - a) <= scaled_tol;
 }
 
-inline bool is_orthogonal(const Mat3 &R)
+inline bool is_orthogonal(const Mat3 &R, const Scalar tol = 1e-8)
 {
 
-    return is_close(R.determinant(), 1.0) && is_close((R.transpose() - R.inverse()).norm(), 0.0);
+    return is_close(R.determinant(), 1.0, tol) && is_close((R.transpose() - R.inverse()).norm(), 0.0, tol);
 }
 
 inline Mat3 skew_symmetric(const Vec3 &a)

@@ -4,6 +4,7 @@
 #include "Geometry.hpp"
 #include "SolverUtils.hpp"
 #include "Borehole.hpp"
+#include "BattiniBeam.hpp"
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole);
 
