@@ -232,22 +232,40 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
     }
 
     // rotations: Newmark body
+    const Index maxiter = 12;
+    const Scalar tol = 1e-5;
     for (Index i = 0; i < N; i++)
     {
         const Quaternion &q = d_rot[i];
         const Mat3 &J = J_u[i].asDiagonal();
-        const Vec3 &L_n = L_rot[i];
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
-
         const Mat3 U_np = q.to_matrix(); // maybe optimize later
-        const Vec3 m = R_ext_rot[i] - R_int_rot[i];
+        const Vec3 m_u = U_np.transpose() * (R_ext_rot[i] - R_int_rot[i]);
 
         const Vec3 omega_u_old = omega_u;
-        omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m_half);
+        Vec3 omega_u_new = omega_u;
+        const Vec3 alpha_u_old = alpha_u;
+        Vec3 alpha_u_new = alpha_u;
 
-        alpha_u = 2 / dt * (omega_u - omega_u_old) - alpha_u; // beta = 0.5 (not recommended by Simo, but seems to work better)
-        // alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
+        const Vec3 omega_u_part = omega_u_old + dt / 2 * alpha_u_old;
+        Vec3 res = J * alpha_u_new - m_u + skew_symmetric(omega_u_part + dt / 2 * alpha_u_new) * J * (omega_u_part + dt / 2 * alpha_u_new);
+        const Mat3 B = J + dt / 2 * skew_symmetric(omega_u_part) * J - skew_symmetric(J * omega_u_part);
+
+        for (Index k = 0; k < maxiter; k++)
+        {
+            Mat3 d_res_d_alpha = B + (dt / 2) * (dt / 2) * (skew_symmetric(alpha_u_new) * J - skew_symmetric(J * alpha_u_new));
+            alpha_u_new = alpha_u_new - d_res_d_alpha.inverse() * res;
+            res = J * alpha_u_new - m_u + skew_symmetric(omega_u_part + dt / 2 * alpha_u_new) * J * (omega_u_part + dt / 2 * alpha_u_new);
+            if (k > maxiter)
+            {
+                if (res.norm() > tol)
+                    printf("Warning: failed to converge, res=%f", res.norm());
+                break;
+            }
+        }
+        alpha_u = alpha_u_new;
+        omega_u = omega_u_old + dt / 2 * (alpha_u_old + alpha_u);
     }
 
     /*Enforcing boundary conditions*/
