@@ -83,11 +83,12 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
             // beam_sys.d_rot[N - 1].from_matrix(T);
             // beam_sys.v_rot[0] = Vec3::Zero();
             // cout << "omega_mag_orig " << omega_u.norm() << endl;
-            beam_sys.v_rot[N - 1] = {10000, 0, 0};
+            beam_sys.v_rot[N - 1] = {10, 100, 0};
             // beam_sys.v_trans[N - 1] = {1000, 0, 0};
         }
 
-        step_explicit_NMB(config, geometry, borehole, beam_sys);
+        step_explicit_SW(config, geometry, borehole, beam_sys);
+        // step_explicit_NMB(config, geometry, borehole, beam_sys);
 
         // calculate internal loads
         // assemble(config, geometry, beam_system);
@@ -136,6 +137,33 @@ void calc_dt(Config &config, const Geometry &geometry)
          << "dt is chosen as CFL * dt_min, where CFL = " << config.CFL << endl
          << "dt = " << config.dt << endl
          << "----------------------------------------------------------\n";
+}
+
+inline Vec3 solve_Alpha(Mat3 I, Vec3 Tn, Scalar dt, Vec3 Alphan1, Vec3 Omegan1, Scalar ceps)
+{
+
+    Index maxi = 12;
+    Vec3 Omeganp = Omegan1 + dt / 2 * Alphan1;
+    Mat3 B = I + dt / 2 * skew_symmetric(Omeganp) * I - skew_symmetric(dt / 2 * I * Omeganp);
+    Vec3 Alphan = Alphan1;
+    Index i = 0;
+    Vec3 res = I * Alphan - Tn + skew_symmetric(Omeganp + dt / 2 * Alphan) * I * (Omeganp + dt / 2 * Alphan);
+    while (res.array().abs().maxCoeff() > ceps)
+    {
+        Alphan = Alphan - (B + (dt / 2) * (dt / 2) * (skew_symmetric(Alphan) * I - skew_symmetric(I * (Alphan)))).lu().solve(res);
+        // Alphan = Alphan - (B + (dt / 2) * (dt / 2) * (skew_symmetric(Alphan) * I - skew_symmetric(I * (Alphan)))).inverse() * res;
+
+        res = I * Alphan - Tn + skew_symmetric(Omeganp + dt / 2 * Alphan) * I * (Omeganp + dt / 2 * Alphan);
+        i = i + 1;
+        if (i > maxi)
+        {
+            if (res.array().abs().maxCoeff() > ceps)
+                printf("Failed to converge, residual= %f\n", res.norm());
+            break;
+        }
+    }
+    // cout << "final res = " << res.norm() << ", after " << i << " iter\n";
+    return Alphan;
 }
 
 void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys)
@@ -189,7 +217,6 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
         const Mat3 &J = J_u[i].asDiagonal();
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
-        L_rot[i] = q.rotate_vector(J * omega_u); // Storing angular momentum L = U*J_u*omega_u at t_n for velocity update
         const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
         q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
 
@@ -232,10 +259,11 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
     }
 
     // rotations: Newmark body
-    const Index maxiter = 12;
-    const Scalar tol = 1e-5;
+
     for (Index i = 0; i < N; i++)
     {
+        if (i == 0)
+            continue;
         const Quaternion &q = d_rot[i];
         const Mat3 &J = J_u[i].asDiagonal();
         Vec3 &omega_u = v_rot[i];
@@ -243,28 +271,9 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
         const Mat3 U_np = q.to_matrix(); // maybe optimize later
         const Vec3 m_u = U_np.transpose() * (R_ext_rot[i] - R_int_rot[i]);
 
-        const Vec3 omega_u_old = omega_u;
-        Vec3 omega_u_new = omega_u;
-        const Vec3 alpha_u_old = alpha_u;
-        Vec3 alpha_u_new = alpha_u;
-
-        const Vec3 omega_u_part = omega_u_old + dt / 2 * alpha_u_old;
-        Vec3 res = J * alpha_u_new - m_u + skew_symmetric(omega_u_part + dt / 2 * alpha_u_new) * J * (omega_u_part + dt / 2 * alpha_u_new);
-        const Mat3 B = J + dt / 2 * skew_symmetric(omega_u_part) * J - skew_symmetric(J * omega_u_part);
-
-        for (Index k = 0; k < maxiter; k++)
-        {
-            Mat3 d_res_d_alpha = B + (dt / 2) * (dt / 2) * (skew_symmetric(alpha_u_new) * J - skew_symmetric(J * alpha_u_new));
-            alpha_u_new = alpha_u_new - d_res_d_alpha.inverse() * res;
-            res = J * alpha_u_new - m_u + skew_symmetric(omega_u_part + dt / 2 * alpha_u_new) * J * (omega_u_part + dt / 2 * alpha_u_new);
-            if (k > maxiter)
-            {
-                if (res.norm() > tol)
-                    printf("Warning: failed to converge, res=%f", res.norm());
-                break;
-            }
-        }
-        alpha_u = alpha_u_new;
+        Vec3 alpha_u_old = alpha_u;
+        Vec3 omega_u_old = omega_u;
+        alpha_u = solve_Alpha(J, m_u, dt, alpha_u_old, omega_u_old, 1e-8);
         omega_u = omega_u_old + dt / 2 * (alpha_u_old + alpha_u);
     }
 

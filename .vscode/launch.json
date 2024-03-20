@@ -13,7 +13,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build_debug/BeamNonlin",
             "args": [
-                "cantilever.yml"
+                "spinning-top.yml"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/testing",

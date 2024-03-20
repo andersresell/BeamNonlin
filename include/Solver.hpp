@@ -62,9 +62,9 @@ inline void kinetic_energy_update(Index N, const Scalar *__restrict__ M, const V
 
 inline void rotate_moment_to_body_frame(Index N, const Quaternion *__restrict__ d_rot,
                                         Vec3 *__restrict__ R_int_rot, Vec3 *__restrict__ R_ext_rot);
-void step_explicit_old(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys);
+void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys);
 
-void step_explicit(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys);
+void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys);
 
 inline void calc_contact_forces(const Config &config, Index N, const Vec3 *__restrict__ x_hole,
                                 const Scalar *__restrict__ r_hole, const Vec3 *__restrict__ X,
