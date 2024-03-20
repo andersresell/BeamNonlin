@@ -3,8 +3,8 @@
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 {
-    // cout << "testing battini.. \n";
-    // BattiniBeam::test();
+    cout << "testing battini.. \n";
+    BattiniBeam::test();
 
     create_output_dir(config);
     BeamSystem beam_sys{config, geometry};
@@ -276,6 +276,7 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
         Vec3 alpha_u_old = alpha_u;
         Vec3 omega_u_old = omega_u;
         alpha_u = solve_Alpha(J, m_u, dt, alpha_u_old, omega_u_old, 1e-8);
+
         omega_u = omega_u_old + dt / 2 * (alpha_u_old + alpha_u);
     }
 

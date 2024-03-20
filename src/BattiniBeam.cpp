@@ -122,8 +122,18 @@ namespace BattiniBeam
         const Mat3 R_local_node_1 = R_co_rotating_current.transpose() * U1 * R_co_rotating_reference;
         const Mat3 R_local_node_2 = R_co_rotating_current.transpose() * U2 * R_co_rotating_reference;
 
-        Scalar local_rot_norm_node_1 = acos((R_local_node_1.trace() - 1.0) / 2.0);
-        Scalar local_rot_norm_node_2 = acos((R_local_node_2.trace() - 1.0) / 2.0);
+        Scalar arg1 = (R_local_node_1.trace() - 1.0) / 2.0;
+        Scalar arg2 = (R_local_node_2.trace() - 1.0) / 2.0;
+
+        assert(abs(arg1) < 1.0 + SMALL_SCALAR);
+        assert(abs(arg2) < 1.0 + SMALL_SCALAR);
+        arg1 = min(1.0, arg1);
+        arg1 = max(-1.0, arg1);
+        arg2 = min(1.0, arg2);
+        arg2 = max(-1.0, arg2);
+
+        Scalar local_rot_norm_node_1 = acos(arg1);
+        Scalar local_rot_norm_node_2 = acos(arg2);
 
         assert(isfinite(local_rot_norm_node_1));
         assert(isfinite(local_rot_norm_node_2));
@@ -324,8 +334,16 @@ namespace BattiniBeam
 
         vector<Quaternion> d_rot;
         Quaternion q;
+        Scalar thetax = 10 * M_PI / 180;
+        Scalar thetay = 2 * M_PI / 180;
+        Scalar thetaz = -3 * M_PI / 180;
+
         q.from_matrix(Mat3::Identity());
         d_rot.push_back(q);
+        Mat3 U2 = triad_from_euler_angles(thetax, thetay, thetaz);
+        cout << "U2\n"
+             << U2 << endl;
+        q.from_matrix(U2);
         d_rot.push_back(q);
 
         Vec12 f_g = global_internal_forces(ie, X.data(), d_trans.data(), d_rot.data(), A, I, I, I, E, G);
