@@ -3,8 +3,8 @@
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 {
-    cout << "testing battini.. \n";
-    BattiniBeam::test();
+    // cout << "testing battini.. \n";
+    // BattiniBeam::test();
 
     create_output_dir(config);
     BeamSystem beam_sys{config, geometry};
@@ -264,15 +264,17 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
 
     for (Index i = 0; i < N; i++)
     {
-        if (i == 0)
-            continue;
+
         const Quaternion &q = d_rot[i];
         const Mat3 &J = J_u[i].asDiagonal();
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
         const Mat3 U_np = q.to_matrix(); // maybe optimize later
-        const Vec3 m_u = U_np.transpose() * (R_ext_rot[i] - R_int_rot[i]);
+        Vec3 m_u = U_np.transpose() * (R_ext_rot[i] - R_int_rot[i]);
 
+        // Scalar ray_tor = 1000.0 * omega_u.x() * J(0, 0);
+        // // printf("i %i, ray tor %f, mx %f, ratio %f\n", i, ray_tor, m_u.x(), ray_tor / m_u.x());
+        // m_u.x() -= ray_tor;
         Vec3 alpha_u_old = alpha_u;
         Vec3 omega_u_old = omega_u;
         alpha_u = solve_Alpha(J, m_u, dt, alpha_u_old, omega_u_old, 1e-8);

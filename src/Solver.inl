@@ -239,7 +239,7 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     Vec12 R_int_battini = BattiniBeam::global_internal_forces(ie, X, d_trans, d_rot, area, Iy, Iz, It, youngs, G);
     assert(R_int_battini.array().isFinite().all());
 
-    // R_int_e = R_int_battini;
+    R_int_e = R_int_battini;
 
     assert(R_int_e.allFinite());
     DEBUG_ONLY(
@@ -663,24 +663,24 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     {
         R_int_trans[i] += alpha * M[i] * v_trans[i];
     }
-// Test with rotational dofs also?
-#pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
-        Scalar alpha_rot = 0.1 * alpha;
-        Vec3 R_damp_rot = alpha_rot * J_u[i].array() * v_rot[i].array();
-        R_damp_rot = d_rot->rotate_vector(R_damp_rot);
-        // if (i == 10 && n_glob % 100 == 0)
-        // {
-        //     cout << "M_w_1 prior: " << R_int_rot[i].x() << endl;
-        //     cout << "M damp w_1: " << R_damp_rot.x() << endl;
-        // }
-        // cout << "R_int_rot \n"
-        //      << R_int_rot[i] << endl
-        //      << "R_damp\n"
-        //      << R_damp_rot << endl;
-        R_int_rot[i] += R_damp_rot;
-    }
+    // Test with rotational dofs also?
+    // #pragma omp parallel for
+    //     for (Index i = 0; i < N; i++)
+    //     {
+    //         Scalar alpha_rot = 0.3 * alpha;
+    //         Vec3 R_damp_rot = alpha_rot * J_u[i].array() * v_rot[i].array();
+    //         R_damp_rot = d_rot->rotate_vector(R_damp_rot);
+    //         // if (i == 10 && n_glob % 100 == 0)
+    //         // {
+    //         //     cout << "M_w_1 prior: " << R_int_rot[i].x() << endl;
+    //         //     cout << "M damp w_1: " << R_damp_rot.x() << endl;
+    //         // }
+    //         // cout << "R_int_rot \n"
+    //         //      << R_int_rot[i] << endl
+    //         //      << "R_damp\n"
+    //         //      << R_damp_rot << endl;
+    //         R_int_rot[i] += R_damp_rot;
+    //     }
 }
 
 // inline void step_central_differences(Scalar dt, Index N, Vec3Quat *__restrict__ u, Vec3Vec3 *__restrict__ v,
