@@ -24,7 +24,7 @@ def is_orthogonal(R):
     else: return True
     
 
-def skew_symmetric(a):
+def skew(a):
     S = np.array([[0, -a[2], a[1]],
                 [a[2], 0, -a[0]],
                 [-a[1], a[0], 0]])
@@ -73,7 +73,7 @@ if __name__=="__main__":
         print("theta [deg] =",theta*180/np.pi)
         
         
-        U = U*np.linalg.inv(I - 0.5*dt*skew_symmetric(omega_u))@(I + 0.5*dt*skew_symmetric(omega_u))
+        U = U*np.linalg.inv(I - 0.5*dt*skew(omega_u))@(I + 0.5*dt*skew(omega_u))
         assert is_orthogonal(U)
         
         print("omega at t = ",t," = ",omega, ", norm = ",np.linalg.norm(omega))

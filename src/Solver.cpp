@@ -146,16 +146,16 @@ inline Vec3 solve_Alpha(Mat3 I, Vec3 Tn, Scalar dt, Vec3 Alphan1, Vec3 Omegan1, 
 
     Index maxi = 12;
     Vec3 Omeganp = Omegan1 + dt / 2 * Alphan1;
-    Mat3 B = I + dt / 2 * skew_symmetric(Omeganp) * I - skew_symmetric(dt / 2 * I * Omeganp);
+    Mat3 B = I + dt / 2 * skew(Omeganp) * I - skew(dt / 2 * I * Omeganp);
     Vec3 Alphan = Alphan1;
     Index i = 0;
-    Vec3 res = I * Alphan - Tn + skew_symmetric(Omeganp + dt / 2 * Alphan) * I * (Omeganp + dt / 2 * Alphan);
+    Vec3 res = I * Alphan - Tn + skew(Omeganp + dt / 2 * Alphan) * I * (Omeganp + dt / 2 * Alphan);
     while (res.array().abs().maxCoeff() > ceps)
     {
-        Alphan = Alphan - (B + (dt / 2) * (dt / 2) * (skew_symmetric(Alphan) * I - skew_symmetric(I * (Alphan)))).lu().solve(res);
-        // Alphan = Alphan - (B + (dt / 2) * (dt / 2) * (skew_symmetric(Alphan) * I - skew_symmetric(I * (Alphan)))).inverse() * res;
+        Alphan = Alphan - (B + (dt / 2) * (dt / 2) * (skew(Alphan) * I - skew(I * (Alphan)))).lu().solve(res);
+        // Alphan = Alphan - (B + (dt / 2) * (dt / 2) * (skew(Alphan) * I - skew(I * (Alphan)))).inverse() * res;
 
-        res = I * Alphan - Tn + skew_symmetric(Omeganp + dt / 2 * Alphan) * I * (Omeganp + dt / 2 * Alphan);
+        res = I * Alphan - Tn + skew(Omeganp + dt / 2 * Alphan) * I * (Omeganp + dt / 2 * Alphan);
         i = i + 1;
         if (i > maxi)
         {

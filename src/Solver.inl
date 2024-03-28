@@ -111,7 +111,7 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     assert(!is_close(qDeltaR.q0, 0.0, 0.1));        // if q0 is 0, gamma_half becomes singular
     const Vec3 gamma_half = qDeltaR.q / qDeltaR.q0; // eq 16.34 divided by 2
 
-    const Mat3 S = skew_symmetric(gamma_half);
+    const Mat3 S = skew(gamma_half);
     const Mat3 DeltaR_m = Mat3::Identity() + 1 / (1 + 0.25 * gamma_half.dot(gamma_half)) * (S + 0.5 * S * S);
     assert(is_orthogonal(DeltaR_m));
     const Mat3 R_ = DeltaR_m * T;
@@ -195,10 +195,10 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
 
     Mat3 L1r2 = 0.5 * r2.dot(e1) * A + 0.5 * A * r2 * (e1 + r1).transpose();
     Mat3 L1r3 = 0.5 * r3.dot(e1) * A + 0.5 * A * r3 * (e1 + r1).transpose();
-    Mat3 L2r2 = 0.5 * skew_symmetric(r2) - 0.25 * r2.transpose() * e1 * skew_symmetric(r1) -
-                0.25 * skew_symmetric(r2) * e1 * (e1 + r1).transpose();
-    Mat3 L2r3 = 0.5 * skew_symmetric(r3) - 0.25 * r3.transpose() * e1 * skew_symmetric(r1) -
-                0.25 * skew_symmetric(r3) * e1 * (e1 + r1).transpose();
+    Mat3 L2r2 = 0.5 * skew(r2) - 0.25 * r2.transpose() * e1 * skew(r1) -
+                0.25 * skew(r2) * e1 * (e1 + r1).transpose();
+    Mat3 L2r3 = 0.5 * skew(r3) - 0.25 * r3.transpose() * e1 * skew(r1) -
+                0.25 * skew(r3) * e1 * (e1 + r1).transpose();
 
     Eigen::Matrix<Scalar, 12, 3> Lr2, Lr3;
     Lr2 << L1r2, L2r2, -L1r2, L2r2;
@@ -501,7 +501,7 @@ inline void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__rest
             Vec3 Ju = J_u[i];
             Vec3 rot_term_orig = omega_u.cross(Vec3{J_u[i].array() * omega_u.array()});
 
-            Vec3 rot_term_new = skew_symmetric(omega_u) * JJu * omega_u;
+            Vec3 rot_term_new = skew(omega_u) * JJu * omega_u;
 
             cout << "rot_term_orig " << rot_term_orig << endl;
             cout << "rot_term_new " << rot_term_new << endl;
@@ -555,8 +555,8 @@ inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, 
         for (Index i = 0; i < N; i++)
         {
             // Mat3 U = d_rot[i].to_matrix();
-            // U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(v_rot[i])).inverse() *
-            //     (Mat3::Identity() + 0.5 * dt * skew_symmetric(v_rot[i]));
+            // U = U * (Mat3::Identity() - 0.5 * dt * skew(v_rot[i])).inverse() *
+            //     (Mat3::Identity() + 0.5 * dt * skew(v_rot[i]));
             // assert(U.allFinite());
             // assert(is_orthogonal(U));
             // d_rot[i].from_matrix(U);
@@ -749,8 +749,8 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
 //         Hughes Winges: (Computing inverse or direct solver?) note that thus differs
 //         from the equation in the hopperstad lecture notes since here omega_u is
 //         used instead of omega*/
-//         U = U * (Mat3::Identity() - 0.5 * dt * skew_symmetric(omega_u)).inverse() *
-//             (Mat3::Identity() + 0.5 * dt * skew_symmetric(omega_u));
+//         U = U * (Mat3::Identity() - 0.5 * dt * skew(omega_u)).inverse() *
+//             (Mat3::Identity() + 0.5 * dt * skew(omega_u));
 //         assert(U.allFinite());
 
 //         /*Quaternion compound rotation*/
@@ -766,7 +766,7 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
 //         // Vec3 a;
 //         // Vec3 b = qu*a;
 
-//         // U = U * (Mat3::Identity() + dt * skew_symmetric(omega_u));
+//         // U = U * (Mat3::Identity() + dt * skew(omega_u));
 //         //   if (i == N - 1)
 //         //   {
 //         //       cout << "omega_u " << omega_u.transpose() << endl;

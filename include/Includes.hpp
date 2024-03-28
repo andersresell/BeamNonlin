@@ -96,7 +96,7 @@ inline bool is_orthogonal(const Mat3 &R, const Scalar tol = 1e-8)
     return is_close(R.determinant(), 1.0, tol) && is_close((R.transpose() - R.inverse()).norm(), 0.0, tol);
 }
 
-inline Mat3 skew_symmetric(const Vec3 &a)
+inline Mat3 skew(const Vec3 &a)
 {
     return Mat3{{0, -a.z(), a.y()},
                 {a.z(), 0, -a.x()},

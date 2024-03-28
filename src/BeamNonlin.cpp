@@ -53,7 +53,7 @@ inline void test_quat()
 
         Vec3 e = Theta.normalized();
         Scalar theta = Theta.norm();
-        Mat3 R = Mat3::Identity() + sin(theta) * skew_symmetric(e) + (1 - cos(theta)) * skew_symmetric(e) * skew_symmetric(e);
+        Mat3 R = Mat3::Identity() + sin(theta) * skew(e) + (1 - cos(theta)) * skew(e) * skew(e);
         assert(is_orthogonal(R));
 
         Quaternion q;

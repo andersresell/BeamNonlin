@@ -5,8 +5,7 @@
 
 class Geometry
 {
-    // If the reference frame is allways pointed along x axis it is redundant to store
-    // X_i as 3d vectors {s_i, 0, 0}, could rather store just s_i and easily convert to vectors when needed.
+
     vector<Vec3> X;
     vector<Scalar> ro;
     vector<Scalar> ri;
