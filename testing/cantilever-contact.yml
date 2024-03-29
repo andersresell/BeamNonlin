@@ -1,0 +1,50 @@
+setup:
+  CFL: 0.5
+  n_max: 100000000
+  t_max: 10
+  n_write: 1000
+  n_threads: 8
+  save_csv : true
+  gravity_enabled: false
+  gravity_acc: [0, 0,-100]
+  check_energy_balance: true
+  rayleigh_damping_enabled: true
+  alpha_rayleigh: 10
+  beta_rayleigh: 3e-6
+  borehole_included: true
+  contact_enabled: true
+
+bc: 
+  case: cantilever
+  orientation_base_euler_angles_xyz_deg: [0,0, 45]
+  #orientation_base_euler_angles_xyz_deg: [0,0, 0]
+  
+loads: 
+  point_loads_rel_to_base_orientation: true
+  point_loads:
+  - R: [0,0,0, 0, 500000,0]
+    rel_loc: 1
+  #  - R: [0, 0, 0, 0,0, 0]
+  #    rel_loc: 1
+    
+
+properties:
+  E: 200.0e+09
+  nu: 0.3
+  rho: 7000
+  K_contact : 10.0e+7 
+  C_contact: 5.0e+4
+  friction_decay : 0.2
+  mu_static : 0.25
+  mu_kinetic : 0.2
+ 
+geometry:
+  L0: 10
+  N: 50
+  D_outer_uniform: 0.1
+  D_inner_uniform: 0.05
+
+
+
+  
+

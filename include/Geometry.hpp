@@ -7,9 +7,8 @@ class Geometry
 {
 
     vector<Vec3> X;
-    vector<Scalar> ro;
-    vector<Scalar> ri;
-    // vector<Scalar> s;
+    vector<Scalar> ro; /*Node radius outer*/
+    vector<Scalar> ri; /*Node radius inner*/
 
 public:
     Geometry(Scalar L0, Scalar N, Scalar D_outer_uniform, Scalar D_inner_uniform);

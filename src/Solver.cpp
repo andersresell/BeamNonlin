@@ -89,8 +89,8 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
             // beam_sys.v_trans[N - 1] = {1000, 0, 0};
         }
 
-        // step_explicit_SW(config, geometry, borehole, beam_sys);
-        step_explicit_NMB(config, geometry, borehole, beam_sys);
+        step_explicit_SW(config, geometry, borehole, beam_sys);
+        // step_explicit_NMB(config, geometry, borehole, beam_sys);
 
         // calculate internal loads
         // assemble(config, geometry, beam_system);
@@ -239,6 +239,15 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
 
     /*Update internal and external forces*/
     assemble(config, geometry, beam_sys);
+
+    if (config.contact_enabled)
+    {
+        calc_hole_contact_forces(config, N, borehole.get_X().data(), beam_sys.hole_index.data(),
+                                 borehole.get_r_hole_element().data(), geometry.get_ro().data(),
+                                 geometry.get_X().data(), d_trans.data(), d_rot.data(), v_trans.data(),
+                                 v_rot.data(), R_ext_trans.data(), R_ext_rot.data());
+    }
+
     if (rayleigh_damping_enabled)
     {
         add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
@@ -325,18 +334,6 @@ void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &
         assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
     }
 
-    // bool half_step = false;
-
-    // if (half_step)
-
-    //     for (Index i = 0; i < N; i++)
-    //     {
-    //         v_trans[i] += dt / M[i] * (R_ext_trans[i] - R_int_trans[i]);
-    //         delta_d_trans[i] = dt * v_trans[i];
-    //     }
-    // else
-    // newmark beta with beta=0, gamma=1/2 (central difference)
-
     for (Index i = 0; i < N; i++)
     {
         const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
@@ -354,8 +351,6 @@ void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &
         const Mat3 &J = J_u[i].asDiagonal();
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
-        // const Mat3 U_n = q.to_matrix(); // Copy of orientation at t_n. Optimize this later maybe.
-        // L_rot[i] = U_n * J * omega_u;   // Storing angular momentum at t_n for velocity update
         L_rot[i] = q.rotate_vector(J * omega_u); // Storing angular momentum L = U*J_u*omega_u at t_n for velocity update
         const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
         q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
@@ -377,6 +372,14 @@ void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &
 
     /*Update internal and external forces*/
     assemble(config, geometry, beam_sys);
+
+    if (config.contact_enabled)
+    {
+        calc_hole_contact_forces(config, N, borehole.get_X().data(), beam_sys.hole_index.data(),
+                                 borehole.get_r_hole_element().data(), geometry.get_ro().data(),
+                                 geometry.get_X().data(), d_trans.data(), d_rot.data(), v_trans.data(),
+                                 v_rot.data(), R_ext_trans.data(), R_ext_rot.data());
+    }
     if (rayleigh_damping_enabled)
     {
         add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),

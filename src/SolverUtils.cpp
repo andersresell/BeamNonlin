@@ -21,6 +21,12 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
     R_static_rot.resize(N, Vec3::Zero());
     M.resize(N, 0.0);
     J_u.resize(N, Vec3::Zero());
+
+    if (config.contact_enabled)
+    {
+        hole_index.resize(N);
+    }
+
     if (config.check_energy_balance)
     {
         delta_d_trans.resize(N);

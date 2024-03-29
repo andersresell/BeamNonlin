@@ -5,6 +5,7 @@
 #include "SolverUtils.hpp"
 #include "Borehole.hpp"
 #include "BattiniBeam.hpp"
+#include "HoleContact.hpp"
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole);
 
@@ -66,11 +67,6 @@ inline void rotate_moment_to_body_frame(Index N, const Quaternion *__restrict__ 
 void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys);
 
 void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys);
-
-inline void calc_contact_forces(const Config &config, Index N, const Vec3 *__restrict__ x_hole,
-                                const Scalar *__restrict__ r_hole, const Vec3 *__restrict__ X,
-                                const Vec3 *__restrict__ d_trans, const Quaternion *__restrict__ d_rot,
-                                Vec3 *__restrict__ R_ext);
 
 void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
                                             Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,

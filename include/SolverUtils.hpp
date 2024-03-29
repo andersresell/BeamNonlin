@@ -32,6 +32,7 @@ struct BeamSystem
     Scalar W_int, W_ext, KE;                         /*Variables for energy balance check*/
     vector<Vec3> delta_d_trans;                      /*Used if checking energy balance*/
     vector<Vec3> delta_d_rot;
+    vector<Index> hole_index; /*Used to refer to the index of the nearest hole if contact is enabled*/
 
     BeamSystem(const Config &config, const Geometry &geometry);
 };

@@ -35,6 +35,14 @@ struct Config
     Scalar E;
     Scalar rho;
 
+    /*Contact*/
+    bool contact_enabled;
+    Scalar mu_static;
+    Scalar mu_kinetic;
+    Scalar coloumb_friction_decay;
+    Scalar K_contact;
+    Scalar C_contact;
+
     Scalar get_G() const { return E / (2 * (1 + nu)); }
 
     size_t get_n_steps() const

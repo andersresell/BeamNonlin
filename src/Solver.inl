@@ -230,16 +230,16 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
         cout << "R_int_e_l:\n"
              << R_int_e_l << endl;);
 
-    Vec12 R_int_e = F_transpose * R_int_e_l;
+    const Vec12 R_int_e = F_transpose * R_int_e_l;
 
-    const Scalar area = M_PI * (ro_e * ro_e - ri_e * ri_e);
-    const Scalar Iy = M_PI / 4 * (ro_e * ro_e * ro_e * ro_e - ri_e * ri_e * ri_e * ri_e);
-    const Scalar Iz = Iy;
-    const Scalar It = 2 * Iy;
-    Vec12 R_int_battini = BattiniBeam::global_internal_forces(ie, X, d_trans, d_rot, area, Iy, Iz, It, youngs, G);
-    assert(R_int_battini.array().isFinite().all());
+    // const Scalar area = M_PI * (ro_e * ro_e - ri_e * ri_e);
+    // const Scalar Iy = M_PI / 4 * (ro_e * ro_e * ro_e * ro_e - ri_e * ri_e * ri_e * ri_e);
+    // const Scalar Iz = Iy;
+    // const Scalar It = 2 * Iy;
+    // Vec12 R_int_battini = BattiniBeam::global_internal_forces(ie, X, d_trans, d_rot, area, Iy, Iz, It, youngs, G);
+    // assert(R_int_battini.array().isFinite().all());
 
-    R_int_e = R_int_battini;
+    // R_int_e = R_int_battini;
 
     assert(R_int_e.allFinite());
     DEBUG_ONLY(
@@ -260,11 +260,11 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     R_int_trans[ie + 1] += R_damp.segment(6, 3);
     R_int_rot[ie + 1] += R_damp.segment(9, 3);
 
-    DEBUG_ONLY(cout << "R_battini " << R_int_battini << endl;);
-    Vec12 diff = R_int_e - R_int_battini;
-    DEBUG_ONLY(cout << "diff \n"
-                    << diff << endl;);
-    assert(diff.norm() < 1e-1);
+    // DEBUG_ONLY(cout << "R_battini " << R_int_battini << endl;);
+    // Vec12 diff = R_int_e - R_int_battini;
+    // DEBUG_ONLY(cout << "diff \n"
+    //                 << diff << endl;);
+    // assert(diff.norm() < 1e-1);
 }
 
 inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
@@ -681,198 +681,6 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     //         //      << R_damp_rot << endl;
     //         R_int_rot[i] += R_damp_rot;
     //     }
-}
-
-// inline void step_central_differences(Scalar dt, Index N, Vec3Quat *__restrict__ u, Vec3Vec3 *__restrict__ v,
-//                                      const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
-//                                      const Vec3Vec3 *__restrict__ R_int, const Vec3Vec3 *__restrict__ R_ext,
-//                                      bool check_energy_balance, Scalar &W_int, Scalar &W_ext, Scalar &KE)
-// {
-
-//     // print_std_vector(R, "R");
-
-//     // print_std_vector(R_static, "R_static");
-
-//     // Vec3Quat::print_array(u, "u", true, true);
-
-//     // print_std_vector(v, "v");
-
-//     Scalar dW_int = 0, dW_ext = 0;
-//     KE = 0;
-
-// #pragma omp parallel for reduction(+ : dW_int) reduction(+ : dW_ext) reduction(+ : KE)
-//     for (Index i = 0; i < N; i++)
-//     {
-//         // cout << "remove!\n";
-//         // if (i == 0)
-//         //     continue;
-
-//         const Vec3 &R_int_trans = R_int[i].trans;
-//         const Vec3 &R_int_rot = R_int[i].rot;
-//         const Vec3 &R_ext_trans = R_ext[i].trans;
-//         const Vec3 &R_ext_rot = R_ext[i].rot;
-//         assert(R_int_trans.allFinite());
-//         assert(R_int_rot.allFinite());
-//         assert(R_ext_trans.allFinite());
-//         assert(R_ext_rot.allFinite());
-
-//         /*--------------------------------------------------------------------
-//         Translations
-//         --------------------------------------------------------------------*/
-//         v[i].trans += dt * (R_ext_trans - R_int_trans) / M[i];
-//         u[i].trans += dt * v[i].trans;
-//         // cout << "v " << v[i].trans << endl
-//         //      << "u " << u[i].trans << endl;
-//         /*--------------------------------------------------------------------
-//         Rotations
-//         --------------------------------------------------------------------*/
-//         Quaternion &q = u[i].rot;
-//         // Optimize this! use Quaternion product directly instead to rotate
-//         Mat3 U = q.to_matrix();
-//         // cout << "U prior\n"
-//         //      << U << endl;
-//         const Vec3 R_rot_u = U.transpose() * (R_ext_rot - R_int_rot); /*Transform nodal force to node frame*/
-//         Vec3 &omega_u = v[i].rot;                                     /*The angular velocities are related to the body frame*/
-//         const Vec3 &J_u_i = J_u[i];
-
-//         /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
-//         // cout << "R_rot_u " << R_rot_u << endl;
-//         // cout << "J_u " << J_u_i << endl;
-//         const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u_i.array() * omega_u.array()})).array() / J_u_i.array();
-//         // cout << "omega_u_dot " << omega_u_dot << endl;
-//         omega_u += dt * omega_u_dot;
-//         // cout << "omega_u " << omega_u << endl;
-//         /*How to update rotations: For now I will use Hughes-Winges.
-//         I could also consider using the Quaternion diff eqn to do it, and normalize it,
-//         would probably be better/faster
-
-//         Hughes Winges: (Computing inverse or direct solver?) note that thus differs
-//         from the equation in the hopperstad lecture notes since here omega_u is
-//         used instead of omega*/
-//         U = U * (Mat3::Identity() - 0.5 * dt * skew(omega_u)).inverse() *
-//             (Mat3::Identity() + 0.5 * dt * skew(omega_u));
-//         assert(U.allFinite());
-
-//         /*Quaternion compound rotation*/
-//         // const Vec3 omega = U * omega_u;
-//         // const Vec3 Delta_Theta_pseudo = dt * omega;
-//         // const Scalar Delta_Theta_val = Delta_Theta_pseudo.norm();
-//         // Quaternion delta_q;
-//         // delta_q.q0 = cos(Delta_Theta_pseudo);
-//         // delta_q.q1 =
-//         //     quat = quat;
-
-//         // Eigen::Quaternion<Scalar> qu{U};
-//         // Vec3 a;
-//         // Vec3 b = qu*a;
-
-//         // U = U * (Mat3::Identity() + dt * skew(omega_u));
-//         //   if (i == N - 1)
-//         //   {
-//         //       cout << "omega_u " << omega_u.transpose() << endl;
-//         //   }
-//         //   cout << "U\n"
-//         //        << U << endl;
-//         u[i].rot.from_matrix(U);
-
-//         // R[i].set_zero(); /*Setting the load vector to zero so it's ready for assembly in the next timestep*/
-//     }
-// }
-
-inline int is_node_within_hole_segment(Index i, const Vec3 &x_hole_A, const Vec3 &x_hole_B,
-                                       const Vec3 &X, const Vec3 &d_trans)
-{
-    const Vec3 t = (x_hole_B - x_hole_A).normalized();
-    const Vec3 x = X + d_trans;
-    const Scalar l_hole_seg = (x_hole_B - x_hole_A).norm();
-    const Scalar dist = (x - x_hole_A).dot(t);
-    const bool is_between = dist >= -SMALL_SCALAR && dist <= l_hole_seg + SMALL_SCALAR;
-    if (is_between)
-    {
-        return 0;
-    }
-    else if (dist < 0)
-    {
-        return -1;
-    }
-    else
-    {
-        assert(dist > 0);
-        return 1;
-    }
-}
-
-inline void update_hole_contact_indices(const Index N, const Vec3 *__restrict__ x_hole,
-                                        Index *__restrict__ hole_index, const Vec3 *__restrict__ X,
-                                        const Vec3 *__restrict__ d_trans)
-{
-    const Index Ne = N - 1;
-    /*Update hole indices*/
-    for (Index i = 0; i < N; i++)
-    {
-        int hi = hole_index[i];
-        int is_between = is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]);
-        if (is_between == 0)
-        {
-            continue;
-        }
-        else if (is_between == -1)
-        {
-            /*Search backwards*/
-            hi--;
-            assert(hi >= 0);
-            while (is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
-            {
-                assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == -1);
-                hi--;
-                assert(hi >= 0);
-            }
-            hole_index[i] = hi;
-        }
-        else
-        {
-            assert(is_between == 1);
-            /*Search forwards*/
-            hi++;
-            assert(hi < Ne);
-            while (is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
-            {
-                assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 1);
-                hi++;
-                assert(hi < Ne);
-            }
-            hole_index[i] = hi;
-        }
-    }
-}
-
-inline void calc_contact_forces(const Config &config, const Index N, const Vec3 *__restrict__ x_hole,
-                                Index *__restrict__ hole_index, const Scalar *__restrict__ r_hole,
-                                const Scalar *__restrict__ r_outer_string, const Vec3 *__restrict__ X,
-                                const Vec3 *__restrict__ d_trans, const Quaternion *__restrict__ d_rot,
-                                Vec3 *__restrict__ R_ext)
-{
-    update_hole_contact_indices(N, x_hole, hole_index, X, d_trans);
-
-    const Index Ne = N - 1;
-    for (Index i = 0; i < N; i++)
-    {
-        const Index hi = hole_index[i];
-        assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 0);
-        assert(hi < Ne);
-        const Vec3 &x = X[i] + d_trans[i];
-        const Vec3 &x_hole_A = x_hole[hi];
-        const Vec3 &x_hole_B = x_hole[hi + 1];
-        const Vec3 t = (x_hole_B - x_hole_A).normalized();
-        const Vec3 x_center = x_hole_A + (x - x_hole_A).dot(t) * t;
-        const Scalar d_center = (x - x_center).norm();
-        const Scalar delta = d_center + r_outer_string[i] - r_hole[i];
-        if (delta <= 0.0)
-        {
-            continue;
-        }
-        const Vec3 n = (x - x_center).normalized();
-    }
 }
 
 inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam_system)

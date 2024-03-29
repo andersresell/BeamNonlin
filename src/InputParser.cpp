@@ -94,6 +94,15 @@ void InputParser::parse_yaml_config_options(Config &config) const
             config.gravity_acc = {0, 0, -STANDARD_GRAVITY};
         }
     }
+    config.contact_enabled = read_optional_option<bool>(root_name_setup, "contact_enabled", false);
+    if (config.contact_enabled)
+    {
+        config.K_contact = read_required_option<Scalar>(root_name_properties, "K_contact");
+        config.C_contact = read_required_option<Scalar>(root_name_properties, "C_contact");
+        config.coloumb_friction_decay = read_required_option<Scalar>(root_name_properties, "coloumb_friction_decay");
+        config.mu_static = read_required_option<Scalar>(root_name_properties, "mu_static");
+        config.mu_kinetic = read_required_option<Scalar>(root_name_properties, "mu_kinetic");
+    }
 
     config.n_threads = read_optional_option<Index>(root_name_setup, "n_threads", 1);
     if (config.n_threads > N_THREADS_MAX)
