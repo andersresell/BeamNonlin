@@ -159,7 +159,7 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-#define MAX_ANGLE 20 * M_PI / 180
+#define MAX_ANGLE 90 * M_PI / 180
     assert(abs(theta_l1) < MAX_ANGLE);
     assert(abs(theta_l2) < MAX_ANGLE);
     assert(abs(theta_l3) < MAX_ANGLE);
@@ -365,8 +365,33 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
 // return R_int_l;
 //}
 //
-
-inline void assemble(const Config &config, const Geometry &geometry, BeamSystem &beam_system)
+inline void zero_internal_and_set_static_forces(const Index N,
+                                                const Vec3 *__restrict__ R_static_trans, const Vec3 *__restrict__ R_static_rot,
+                                                Vec3 *__restrict__ R_int_trans, Vec3 *__restrict__ R_int_rot,
+                                                Vec3 *__restrict__ R_ext_trans, Vec3 *__restrict__ R_ext_rot)
+{
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        R_int_trans[i] = {0, 0, 0};
+    }
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        R_int_rot[i] = {0, 0, 0};
+    }
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        R_ext_trans[i] = R_static_trans[i];
+    }
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++)
+    {
+        R_ext_rot[i] = R_static_rot[i];
+    }
+}
+inline void calc_inner_forces(const Config &config, const Geometry &geometry, BeamSystem &beam_system)
 {
 
     const Index N = geometry.get_N();
@@ -376,16 +401,6 @@ inline void assemble(const Config &config, const Geometry &geometry, BeamSystem 
     const Scalar E = config.E;
     const Scalar G = config.get_G();
     const Scalar beta_rayleigh = config.beta_rayleigh;
-
-/*Start by setting internal forces to zero and external forces to the static loads*/
-#pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
-        beam_system.R_int_trans[i] = {0, 0, 0};
-        beam_system.R_int_rot[i] = {0, 0, 0};
-        beam_system.R_ext_trans[i] = beam_system.R_static_trans[i];
-        beam_system.R_ext_rot[i] = beam_system.R_static_rot[i];
-    }
 
 #pragma omp parallel for
     /*even elements*/

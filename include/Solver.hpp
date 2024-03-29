@@ -15,16 +15,25 @@ void calc_dt(Config &config, const Geometry &geometry);
 
 void check_energy_balance(const Config &config, const BeamSystem &beam_sys);
 
-inline void assemble(const Config &config, const Geometry &geometry, BeamSystem &beam_sys);
+void calc_forces(const Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_system);
+
+inline void calc_inner_forces(const Config &config, const Geometry &geometry, BeamSystem &beam_system);
+
+inline void zero_internal_and_set_static_forces(const Index N,
+                                                const Vec3 *__restrict__ R_static_trans, const Vec3 *__restrict__ R_static_rot,
+                                                Vec3 *__restrict__ R_int_trans, Vec3 *__restrict__ R_int_rot,
+                                                Vec3 *__restrict__ R_ext_trans, Vec3 *__restrict__ R_ext_rot);
 
 inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const Scalar *__restrict__ M,
                                                    const Vec3 *__restrict__ v_trans, Vec3 *__restrict__ R_int_trans,
                                                    const Vec3 *__restrict__ J_u, const Quaternion *__restrict__ d_rot,
                                                    const Vec3 *__restrict__ v_rot, Vec3 *__restrict__ R_int_rot);
 
-inline void calc_element_inner_forces_crisfield(Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
-                                                const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
-                                                Vec3 *__restrict__ R_int_rot, Scalar ri_e, Scalar ro_e, Scalar E, Scalar G);
+inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
+                                      const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
+                                      Vec3 *__restrict__ R_int_rot, const Scalar ri_e, const Scalar ro_e, const Scalar youngs,
+                                      const Scalar G, const Scalar beta_rayleigh, const Vec3 *__restrict__ v_trans,
+                                      const Vec3 *__restrict__ v_rot);
 
 inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
                                       Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,

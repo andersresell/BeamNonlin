@@ -3,8 +3,8 @@
 
 class Borehole
 {
-    vector<Vec3> X;
-    vector<Scalar> r_hole_element; /**/
+    vector<Vec3> X;                /*Hole nodes*/
+    vector<Scalar> r_hole_element; /*Radii of hole elements*/
 
 public:
     const vector<Vec3> &get_X() const { return X; }

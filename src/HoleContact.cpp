@@ -1,8 +1,9 @@
 
 #include "../include/HoleContact.hpp"
 
-void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *__restrict__ x_hole,
-                              vector<Index> &hole_index, const Scalar *__restrict__ r_hole,
+void calc_hole_contact_forces(const Config &config, const Index N, const Index N_hole,
+                              const Vec3 *__restrict__ x_hole,
+                              Index *__restrict__ hole_index, const Scalar *__restrict__ r_hole,
                               const Scalar *__restrict__ r_outer_string, const Vec3 *__restrict__ X,
                               const Vec3 *__restrict__ d_trans, const Quaternion *__restrict__ d_rot,
                               const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot,
@@ -10,9 +11,10 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *_
 {
     assert(config.contact_enabled);
 
-    update_hole_contact_indices(N, x_hole, hole_index.data(), X, d_trans);
+    update_hole_contact_indices(N, N_hole, x_hole, hole_index, X, d_trans);
 
     const Index Ne = N - 1;
+    const Index Ne_hole = N_hole - 1;
 
     const Scalar mu_s = config.mu_static;
     const Scalar mu_k = config.mu_kinetic;
@@ -27,8 +29,8 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *_
         // cout << "n glob " << n_glob << endl;
         // cout << "i " << i << endl;
         // cout << "hi " << hi << endl;
-        assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 0);
-        assert(hi < Ne);
+        assert(node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 0);
+        assert(hi < Ne_hole);
         const Vec3 x = X[i] + d_trans[i];
         const Vec3 &x_hole_A = x_hole[hi];
         const Vec3 &x_hole_B = x_hole[hi + 1];
@@ -74,8 +76,8 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *_
     }
 }
 
-inline int is_node_within_hole_segment(Index i, const Vec3 &x_hole_A, const Vec3 &x_hole_B,
-                                       const Vec3 &X, const Vec3 &d_trans)
+inline int node_within_hole_segment(Index i, const Vec3 &x_hole_A, const Vec3 &x_hole_B,
+                                    const Vec3 &X, const Vec3 &d_trans)
 {
     const Vec3 t = (x_hole_B - x_hole_A).normalized();
     const Vec3 x = X + d_trans;
@@ -97,17 +99,17 @@ inline int is_node_within_hole_segment(Index i, const Vec3 &x_hole_A, const Vec3
     }
 }
 
-inline void update_hole_contact_indices(const Index N, const Vec3 *__restrict__ x_hole,
+inline void update_hole_contact_indices(const Index N, const Index N_hole, const Vec3 *__restrict__ x_hole,
                                         Index *__restrict__ hole_index, const Vec3 *__restrict__ X,
                                         const Vec3 *__restrict__ d_trans)
 {
-    const Index Ne = N - 1;
+    const Index Ne_hole = N_hole - 1;
     /*Update hole indices*/
 #pragma omp parallel for
     for (Index i = 0; i < N; i++)
     {
         int hi = hole_index[i];
-        int is_between = is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]);
+        int is_between = node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]);
         // cerr << "hi orig =" << hi << endl;
         // cout << "x_hole A\n"
         //      << x_hole[hi] << endl;
@@ -127,9 +129,9 @@ inline void update_hole_contact_indices(const Index N, const Vec3 *__restrict__ 
             /*Search backwards*/
             hi--;
             assert(hi >= 0);
-            while (is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
+            while (node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
             {
-                assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == -1);
+                assert(node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == -1);
                 hi--;
                 assert(hi >= 0);
             }
@@ -143,14 +145,28 @@ inline void update_hole_contact_indices(const Index N, const Vec3 *__restrict__ 
             assert(is_between == 1);
             /*Search forwards*/
             hi++;
-            assert(hi < Ne);
-            while (is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
+            assert(hi < Ne_hole);
+            while (node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
             {
-                assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 1);
+                assert(node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 1);
+                cout << "x_hole A\n"
+                     << x_hole[hi] << endl;
+                cout << "x_hole B\n"
+                     << x_hole[hi + 1] << endl;
+                cout << "x[i]\n " << X[i] + d_trans[i] << endl;
+                cout << "d_trans\n"
+                     << d_trans[i] << endl;
+                cerr << "i=" << i << "is between =" << is_between << endl;
                 hi++;
-                assert(hi < Ne);
+                assert(hi < Ne_hole);
             }
-            hole_index[i] = min(hi, int(Ne - 1));
+            hole_index[i] = min(hi, int(Ne_hole - 1));
+            // if (hole_index[i] > Ne_hole)
+            // {
+            //     cout << "n_glob=" << n_glob << endl;
+            //     cout << "illegal hole_index = " << hole_index[i] << ", at i=" << i << ", abort\n";
+            //     exit(1);
+            // }
             // if (hi > Ne)
             // cerr << "forwards hi=" << hi << endl;
         }

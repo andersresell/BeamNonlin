@@ -33,8 +33,6 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
         config.t = n * config.dt;
         config.n = n;
 
-        calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
-
         // remove later
         n_glob = n;
 
@@ -108,6 +106,34 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
     timer.print_elapsed_time();
 }
 
+void calc_forces(const Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_system)
+{
+    const Index N = geometry.get_N();
+
+    zero_internal_and_set_static_forces(N, beam_system.R_static_trans.data(), beam_system.R_static_rot.data(),
+                                        beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+                                        beam_system.R_ext_trans.data(), beam_system.R_ext_rot.data());
+
+    calc_inner_forces(config, geometry, beam_system);
+
+    if (config.contact_enabled)
+    {
+        calc_hole_contact_forces(config, N, borehole.get_N_hole_elements(), borehole.get_X().data(),
+                                 beam_system.hole_index.data(), borehole.get_r_hole_element().data(),
+                                 geometry.get_ro().data(), geometry.get_X().data(), beam_system.d_trans.data(),
+                                 beam_system.d_rot.data(), beam_system.v_trans.data(), beam_system.v_rot.data(),
+                                 beam_system.R_ext_trans.data(), beam_system.R_ext_rot.data());
+    }
+
+    if (config.rayleigh_damping_enabled)
+    {
+        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, beam_system.M.data(),
+                                               beam_system.v_trans.data(), beam_system.R_int_trans.data(),
+                                               beam_system.J_u.data(), beam_system.d_rot.data(),
+                                               beam_system.v_rot.data(), beam_system.R_int_rot.data());
+    }
+}
+
 void calc_dt(Config &config, const Geometry &geometry)
 {
 
@@ -168,31 +194,31 @@ inline Vec3 solve_Alpha(Mat3 I, Vec3 Tn, Scalar dt, Vec3 Alphan1, Vec3 Omegan1, 
     return Alphan;
 }
 
-void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys)
+void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_system)
 {
     const Scalar dt = config.dt;
     const Index N = geometry.get_N();
-    vector<Vec3> &d_trans = beam_sys.d_trans;
-    vector<Quaternion> &d_rot = beam_sys.d_rot;
-    vector<Vec3> &v_trans = beam_sys.v_trans;
-    vector<Vec3> &v_rot = beam_sys.v_rot;
-    vector<Vec3> &a_trans = beam_sys.a_trans;
-    vector<Vec3> &a_rot = beam_sys.a_rot;
-    vector<Vec3> &L_rot = beam_sys.L_rot;
-    vector<Vec3> &m_rot = beam_sys.m_rot;
-    vector<Vec3> &R_int_trans = beam_sys.R_int_trans;
-    vector<Vec3> &R_int_rot = beam_sys.R_int_rot;
-    vector<Vec3> &R_ext_trans = beam_sys.R_ext_trans;
-    vector<Vec3> &R_ext_rot = beam_sys.R_ext_rot;
-    const vector<Scalar> &M = beam_sys.M;
-    const vector<Vec3> &J_u = beam_sys.J_u;
+    vector<Vec3> &d_trans = beam_system.d_trans;
+    vector<Quaternion> &d_rot = beam_system.d_rot;
+    vector<Vec3> &v_trans = beam_system.v_trans;
+    vector<Vec3> &v_rot = beam_system.v_rot;
+    vector<Vec3> &a_trans = beam_system.a_trans;
+    vector<Vec3> &a_rot = beam_system.a_rot;
+    vector<Vec3> &L_rot = beam_system.L_rot;
+    vector<Vec3> &m_rot = beam_system.m_rot;
+    vector<Vec3> &R_int_trans = beam_system.R_int_trans;
+    vector<Vec3> &R_int_rot = beam_system.R_int_rot;
+    vector<Vec3> &R_ext_trans = beam_system.R_ext_trans;
+    vector<Vec3> &R_ext_rot = beam_system.R_ext_rot;
+    const vector<Scalar> &M = beam_system.M;
+    const vector<Vec3> &J_u = beam_system.J_u;
     const bool check_energy_balance = config.check_energy_balance;
     const bool rayleigh_damping_enabled = config.rayleigh_damping_enabled;
-    Scalar &W_int = beam_sys.W_int;
-    Scalar &W_ext = beam_sys.W_ext;
-    Scalar &KE = beam_sys.KE;
-    vector<Vec3> &delta_d_trans = beam_sys.delta_d_trans; /*Only used if energy balance is checked*/
-    vector<Vec3> &delta_d_rot = beam_sys.delta_d_rot;     /*Only used if energy balance is checked*/
+    Scalar &W_int = beam_system.W_int;
+    Scalar &W_ext = beam_system.W_ext;
+    Scalar &KE = beam_system.KE;
+    vector<Vec3> &delta_d_trans = beam_system.delta_d_trans; /*Only used if energy balance is checked*/
+    vector<Vec3> &delta_d_rot = beam_system.delta_d_rot;     /*Only used if energy balance is checked*/
     if (check_energy_balance)
     {
         assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
@@ -229,7 +255,7 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
     }
 
     /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam_sys);
+    set_simple_bc(config, geometry, beam_system);
 
     if (check_energy_balance)
     {
@@ -238,21 +264,7 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
     }
 
     /*Update internal and external forces*/
-    assemble(config, geometry, beam_sys);
-
-    if (config.contact_enabled)
-    {
-        calc_hole_contact_forces(config, N, borehole.get_X().data(), beam_sys.hole_index,
-                                 borehole.get_r_hole_element().data(), geometry.get_ro().data(),
-                                 geometry.get_X().data(), d_trans.data(), d_rot.data(), v_trans.data(),
-                                 v_rot.data(), R_ext_trans.data(), R_ext_rot.data());
-    }
-
-    if (rayleigh_damping_enabled)
-    {
-        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
-                                               J_u.data(), d_rot.data(), v_rot.data(), R_int_rot.data());
-    }
+    calc_forces(config, geometry, borehole, beam_system);
 
     if (check_energy_balance)
     {
@@ -292,7 +304,7 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
     }
 
     /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam_sys);
+    set_simple_bc(config, geometry, beam_system);
 
     if (check_energy_balance)
     {
@@ -300,31 +312,31 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
     }
 }
 
-void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys)
+void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_system)
 {
     const Scalar dt = config.dt;
     const Index N = geometry.get_N();
-    vector<Vec3> &d_trans = beam_sys.d_trans;
-    vector<Quaternion> &d_rot = beam_sys.d_rot;
-    vector<Vec3> &v_trans = beam_sys.v_trans;
-    vector<Vec3> &v_rot = beam_sys.v_rot;
-    vector<Vec3> &a_trans = beam_sys.a_trans;
-    vector<Vec3> &a_rot = beam_sys.a_rot;
-    vector<Vec3> &L_rot = beam_sys.L_rot;
-    vector<Vec3> &m_rot = beam_sys.m_rot;
-    vector<Vec3> &R_int_trans = beam_sys.R_int_trans;
-    vector<Vec3> &R_int_rot = beam_sys.R_int_rot;
-    vector<Vec3> &R_ext_trans = beam_sys.R_ext_trans;
-    vector<Vec3> &R_ext_rot = beam_sys.R_ext_rot;
-    const vector<Scalar> &M = beam_sys.M;
-    const vector<Vec3> &J_u = beam_sys.J_u;
+    vector<Vec3> &d_trans = beam_system.d_trans;
+    vector<Quaternion> &d_rot = beam_system.d_rot;
+    vector<Vec3> &v_trans = beam_system.v_trans;
+    vector<Vec3> &v_rot = beam_system.v_rot;
+    vector<Vec3> &a_trans = beam_system.a_trans;
+    vector<Vec3> &a_rot = beam_system.a_rot;
+    vector<Vec3> &L_rot = beam_system.L_rot;
+    vector<Vec3> &m_rot = beam_system.m_rot;
+    vector<Vec3> &R_int_trans = beam_system.R_int_trans;
+    vector<Vec3> &R_int_rot = beam_system.R_int_rot;
+    vector<Vec3> &R_ext_trans = beam_system.R_ext_trans;
+    vector<Vec3> &R_ext_rot = beam_system.R_ext_rot;
+    const vector<Scalar> &M = beam_system.M;
+    const vector<Vec3> &J_u = beam_system.J_u;
     const bool check_energy_balance = config.check_energy_balance;
     const bool rayleigh_damping_enabled = config.rayleigh_damping_enabled;
-    Scalar &W_int = beam_sys.W_int;
-    Scalar &W_ext = beam_sys.W_ext;
-    Scalar &KE = beam_sys.KE;
-    vector<Vec3> &delta_d_trans = beam_sys.delta_d_trans; /*Only used if energy balance is checked*/
-    vector<Vec3> &delta_d_rot = beam_sys.delta_d_rot;     /*Only used if energy balance is checked*/
+    Scalar &W_int = beam_system.W_int;
+    Scalar &W_ext = beam_system.W_ext;
+    Scalar &KE = beam_system.KE;
+    vector<Vec3> &delta_d_trans = beam_system.delta_d_trans; /*Only used if energy balance is checked*/
+    vector<Vec3> &delta_d_rot = beam_system.delta_d_rot;     /*Only used if energy balance is checked*/
     if (check_energy_balance)
     {
         assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
@@ -362,7 +374,7 @@ void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &
     }
 
     /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam_sys);
+    set_simple_bc(config, geometry, beam_system);
 
     if (check_energy_balance)
     {
@@ -371,20 +383,7 @@ void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &
     }
 
     /*Update internal and external forces*/
-    assemble(config, geometry, beam_sys);
-
-    if (config.contact_enabled)
-    {
-        calc_hole_contact_forces(config, N, borehole.get_X().data(), beam_sys.hole_index,
-                                 borehole.get_r_hole_element().data(), geometry.get_ro().data(),
-                                 geometry.get_X().data(), d_trans.data(), d_rot.data(), v_trans.data(),
-                                 v_rot.data(), R_ext_trans.data(), R_ext_rot.data());
-    }
-    if (rayleigh_damping_enabled)
-    {
-        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
-                                               J_u.data(), d_rot.data(), v_rot.data(), R_int_rot.data());
-    }
+    calc_forces(config, geometry, borehole, beam_system);
 
     if (check_energy_balance)
     {
@@ -434,95 +433,7 @@ void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &
     }
 
     /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam_sys);
-
-    if (check_energy_balance)
-    {
-        kinetic_energy_update(N, M.data(), J_u.data(), v_trans.data(), v_rot.data(), KE);
-    }
-}
-
-void step_explicit_old(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_sys)
-{
-    const Scalar dt = config.dt;
-    const Index N = geometry.get_N();
-    vector<Vec3> &d_trans = beam_sys.d_trans;
-    vector<Quaternion> &d_rot = beam_sys.d_rot;
-    vector<Vec3> &v_trans = beam_sys.v_trans;
-    vector<Vec3> &v_rot = beam_sys.v_rot;
-    vector<Vec3> &R_int_trans = beam_sys.R_int_trans;
-    vector<Vec3> &R_int_rot = beam_sys.R_int_rot;
-    vector<Vec3> &R_ext_trans = beam_sys.R_ext_trans;
-    vector<Vec3> &R_ext_rot = beam_sys.R_ext_rot;
-    const vector<Scalar> &M = beam_sys.M;
-    const vector<Vec3> &J_u = beam_sys.J_u;
-    const bool check_energy_balance = config.check_energy_balance;
-    const bool rayleigh_damping_enabled = config.rayleigh_damping_enabled;
-    Scalar &W_int = beam_sys.W_int;
-    Scalar &W_ext = beam_sys.W_ext;
-    Scalar &KE = beam_sys.KE;
-    vector<Vec3> &delta_d_trans = beam_sys.delta_d_trans; /*Only used if energy balance is checked*/
-    vector<Vec3> &delta_d_rot = beam_sys.delta_d_rot;     /*Only used if energy balance is checked*/
-
-    if (check_energy_balance)
-    {
-        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
-    }
-    else
-    {
-        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
-    }
-
-    // /*velocity at t_{n+1/2}*/
-    // velocity_update_partial(dt, N, M.data(), J_u.data(), R_int_trans.data(), R_int_rot.data(),
-    //                         R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
-
-    /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam_sys);
-
-    /*Checking energy balance in two steps.
-    The equation to be computed is W_{n+1} = W_n + delta_u/2*(Rn + R_{n+1})
-    This will be done in two steps in order to not need double storage for R
-    First W += delta_u/2*R_n, then updating R, then W +=  * delta_u/2*R_{n+1}
-    */
-    if (check_energy_balance)
-    {
-        calc_delta_d(dt, N, delta_d_trans.data(), delta_d_rot.data(), v_trans.data(), v_rot.data());
-
-        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
-                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
-    }
-
-    /*Displacement at t_{n+1}*/
-    displacement_update(dt, N, v_trans.data(), v_rot.data(), d_trans.data(), d_rot.data());
-
-    //////// Move this to a unfied force function
-    /*Updating external and internal forces*/
-    assemble(config, geometry, beam_sys);
-
-    if (rayleigh_damping_enabled)
-    {
-        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, M.data(), v_trans.data(), R_int_trans.data(),
-                                               J_u.data(), d_rot.data(), v_rot.data(), R_int_rot.data());
-    }
-    //////////
-
-    /*Since the moments are allways used in the body frame, these are rotated
-    once and for all instead of every time they are needed.*/
-    rotate_moment_to_body_frame(N, d_rot.data(), R_int_rot.data(), R_ext_rot.data());
-
-    if (check_energy_balance)
-    {
-        work_update_partial(N, delta_d_trans.data(), delta_d_rot.data(), R_int_trans.data(),
-                            R_int_rot.data(), R_ext_trans.data(), R_ext_rot.data(), W_ext, W_int);
-    }
-
-    /*velocity at t_{n+1} */
-    // velocity_update_partial(dt, N, M.data(), J_u.data(), R_int_trans.data(), R_int_rot.data(),
-    //                         R_ext_trans.data(), R_ext_rot.data(), v_trans.data(), v_rot.data());
-
-    /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam_sys);
+    set_simple_bc(config, geometry, beam_system);
 
     if (check_energy_balance)
     {
