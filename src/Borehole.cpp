@@ -7,7 +7,7 @@ Borehole::Borehole(const Config &config, Scalar L_string)
         return;
     }
     // Just hardcoding in an L ish shape for now
-    Scalar r_uniform = 5;
+    Scalar r_uniform = 10;
     Index N_hole = 20;
     X.resize(N_hole);
     r_hole_element.resize(N_hole - 1, r_uniform);

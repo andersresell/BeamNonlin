@@ -1,16 +1,16 @@
 setup:
   CFL: 0.5
   n_max: 100000000
-  t_max: 40
-  n_write: 100
-  n_threads: 1
+  t_max: 80
+  n_write: 1000
+  n_threads: 4
   save_csv : true
-  gravity_enabled: true
+  gravity_enabled: false
   #gravity_acc: [0, 0,-100]
   check_energy_balance: true
-  rayleigh_damping_enabled: false
-  alpha_rayleigh: 10
-  beta_rayleigh: 3e-6
+  rayleigh_damping_enabled: true
+  alpha_rayleigh: 0
+  beta_rayleigh: 3e-4
   borehole_included: true
   contact_enabled: true
 
@@ -21,22 +21,24 @@ bc:
   
 loads: 
   point_loads:
-  - R: [0,0,0, 1000, 0, 0]
+  - R: [-1000,0,0,500, 0, 0]
     rel_loc: 1
+  - R: [0,100,0,0, 0, 0]
+    rel_loc: 0.5
 
 properties:
   E: 200.0e+09
   nu: 0.3
   rho: 7000
   K_contact : 10.0e+3
-  C_contact: 5.0e+2 #  5.0e+4
+  C_contact: 5.0e+3 #  5.0e+4
   coloumb_friction_decay :  0.2
   mu_static :  0.25
   mu_kinetic :  0.2
  
 geometry:
-  L0: 100
-  N: 10
+  L0: 500
+  N: 100
   D_outer_uniform: 0.1
   D_inner_uniform: 0.05
 

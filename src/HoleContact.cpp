@@ -51,8 +51,11 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
         const Vec3 omega = d_rot[i].rotate_vector(v_rot[i]); /*angular velocity in global frame*/
 
         const Vec3 vc = v_trans[i] + omega.cross(r_outer_string[i] * n); /*Velocity at the contact point*/
+
         const Scalar vcn = vc.dot(n);
+
         const Vec3 v_slip = vc - n * vcn;
+
         const Vec3 t_slip = v_slip.normalized();
 
         const Scalar mu = mu_k + (mu_s - mu_k) * exp(-d_c * v_slip.norm()); /*Coloumb friction model*/
@@ -60,17 +63,37 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
         const Scalar fn = (K_c * delta + C_c * vcn) * dX_segment; /*Normal force*/
         const Scalar ft = mu * fn;                                /*Tangenital force*/
 
-        const Vec3 fc = -n * fn - t * ft;
-        const Vec3 mc = -r_outer_string[i] * n.cross(fc); /*m = r x f*/
+        const Vec3 fc = -n * fn - t_slip * ft;
+        const Vec3 mc = r_outer_string[i] * n.cross(fc); /*m = r x f*/
 
         assert(fc.allFinite() && mc.allFinite());
 
-        if (i == 75)
-        { // check if correct
-            cout << "n " << n << endl;
-            cout << "fc" << fc << endl;
-            cout << "mc " << mc << endl;
-        }
+        // cout << "n_glob " << n_glob << endl;
+        // if (i == 7 && t_glob > 2 && omega.x() > 10 && abs(v_trans[i].x()) < 0.1)
+        // {
+        //     cout << "i " << i << endl;
+        //     cout << "v \n"
+        //          << v_trans[i] << endl;
+        //     cout << "vc \n"
+        //          << vc << endl;
+        //     cout << "vcn " << vcn << endl;
+
+        //     cout << "v_slip \n"
+        //          << v_slip << endl;
+        //     cout << "omega \n"
+        //          << omega << endl;
+        //     cout << "t_slip \n"
+        //          << t_slip << endl;
+        //     cout << "fn " << fn << endl;
+        //     cout << "ft " << ft << endl;
+        //     cout << "n\n " << n << endl;
+        //     cout << "fc \n"
+        //          << fc << endl;
+        //     cout << "mc \n"
+        //          << mc << endl;
+        //     int a = 1;
+        // }
+
         R_ext_trans[i] += fc;
         R_ext_rot[i] += mc;
     }
@@ -149,14 +172,14 @@ inline void update_hole_contact_indices(const Index N, const Index N_hole, const
             while (node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) != 0)
             {
                 assert(node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 1);
-                cout << "x_hole A\n"
-                     << x_hole[hi] << endl;
-                cout << "x_hole B\n"
-                     << x_hole[hi + 1] << endl;
-                cout << "x[i]\n " << X[i] + d_trans[i] << endl;
-                cout << "d_trans\n"
-                     << d_trans[i] << endl;
-                cerr << "i=" << i << "is between =" << is_between << endl;
+                // cout << "x_hole A\n"
+                //      << x_hole[hi] << endl;
+                // cout << "x_hole B\n"
+                //      << x_hole[hi + 1] << endl;
+                // cout << "x[i]\n " << X[i] + d_trans[i] << endl;
+                // cout << "d_trans\n"
+                //      << d_trans[i] << endl;
+                // cerr << "i=" << i << "is between =" << is_between << endl;
                 hi++;
                 assert(hi < Ne_hole);
             }

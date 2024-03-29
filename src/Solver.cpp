@@ -1,6 +1,9 @@
 #include "../include/Solver.hpp"
 #include "Solver.inl"
 
+Index n_glob;
+Scalar t_glob;
+
 void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 {
     // cout << "testing battini.. \n";
@@ -35,6 +38,7 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
 
         // remove later
         n_glob = n;
+        t_glob = config.t;
 
         if (n % 1000 == 0)
         {
