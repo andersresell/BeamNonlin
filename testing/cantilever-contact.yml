@@ -1,11 +1,11 @@
 setup:
   CFL: 0.5
   n_max: 100000000
-  t_max: 80
+  t_max: 10
   n_write: 1000
   n_threads: 4
   save_csv : true
-  gravity_enabled: false
+  gravity_enabled: true
   #gravity_acc: [0, 0,-100]
   check_energy_balance: true
   rayleigh_damping_enabled: true
@@ -21,16 +21,16 @@ bc:
   
 loads: 
   point_loads:
-  - R: [-1000,0,0,500, 0, 0]
+  - R: [0,0,0,5000, 0, 0]
     rel_loc: 1
-  - R: [0,100,0,0, 0, 0]
-    rel_loc: 0.5
+  # - R: [0,100,0,0, 0, 0]
+  #   rel_loc: 0.5
 
 properties:
   E: 200.0e+09
   nu: 0.3
   rho: 7000
-  K_contact : 10.0e+3
+  K_contact : 10.0e+6
   C_contact: 5.0e+3 #  5.0e+4
   coloumb_friction_decay :  0.2
   mu_static :  0.25

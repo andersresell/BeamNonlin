@@ -71,26 +71,26 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
         // cout << "n_glob " << n_glob << endl;
         // if (i == 7 && t_glob > 2 && omega.x() > 10 && abs(v_trans[i].x()) < 0.1)
         // {
-        //     cout << "i " << i << endl;
-        //     cout << "v \n"
-        //          << v_trans[i] << endl;
-        //     cout << "vc \n"
-        //          << vc << endl;
-        //     cout << "vcn " << vcn << endl;
+        // cout << "i " << i << endl;
+        // cout << "v \n"
+        //      << v_trans[i] << endl;
+        // cout << "vc \n"
+        //      << vc << endl;
+        // cout << "vcn " << vcn << endl;
 
-        //     cout << "v_slip \n"
-        //          << v_slip << endl;
-        //     cout << "omega \n"
-        //          << omega << endl;
-        //     cout << "t_slip \n"
-        //          << t_slip << endl;
-        //     cout << "fn " << fn << endl;
-        //     cout << "ft " << ft << endl;
-        //     cout << "n\n " << n << endl;
-        //     cout << "fc \n"
-        //          << fc << endl;
-        //     cout << "mc \n"
-        //          << mc << endl;
+        // cout << "v_slip \n"
+        //      << v_slip << endl;
+        // cout << "omega \n"
+        //      << omega << endl;
+        // cout << "t_slip \n"
+        //      << t_slip << endl;
+        // cout << "fn " << fn << endl;
+        // cout << "ft " << ft << endl;
+        // cout << "n\n " << n << endl;
+        // cout << "fc \n"
+        //      << fc << endl;
+        // cout << "mc \n"
+        //      << mc << endl;
         //     int a = 1;
         // }
 
