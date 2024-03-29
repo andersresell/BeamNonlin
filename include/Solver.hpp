@@ -15,8 +15,6 @@ void calc_dt(Config &config, const Geometry &geometry);
 
 void check_energy_balance(const Config &config, const BeamSystem &beam_sys);
 
-static Index n_glob;
-
 inline void assemble(const Config &config, const Geometry &geometry, BeamSystem &beam_sys);
 
 inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const Scalar *__restrict__ M,

@@ -8,6 +8,16 @@ InputParser::InputParser(const string &input_filename) : input_filename{input_fi
     }
     catch (const exception &e)
     {
+        if (input_filename.size() > 4)
+        {
+            string yml_extension = input_filename.substr(input_filename.size() - 4);
+            if (yml_extension != ".yml")
+            {
+                throw runtime_error("Error loading input file '" + input_filename + "'\n" +
+                                    "Don't forget .yml extension in name");
+            }
+        }
+
         throw runtime_error("Error loading input file '" + input_filename + "', " + string(e.what()) +
                             "\nNote that the input file has to be located in the configurations directory.\n");
     }

@@ -6,7 +6,7 @@
 #include "Borehole.hpp"
 
 void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *__restrict__ x_hole,
-                              Index *__restrict__ hole_index, const Scalar *__restrict__ r_hole,
+                              vector<Index> &hole_index, const Scalar *__restrict__ r_hole,
                               const Scalar *__restrict__ r_outer_string, const Vec3 *__restrict__ X,
                               const Vec3 *__restrict__ d_trans, const Quaternion *__restrict__ d_rot,
                               const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot,

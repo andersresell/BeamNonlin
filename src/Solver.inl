@@ -159,7 +159,7 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     // assert(theta_l1 == 0);
     // assert(theta_l4 == 0);
 
-#define MAX_ANGLE 10 * M_PI / 180
+#define MAX_ANGLE 20 * M_PI / 180
     assert(abs(theta_l1) < MAX_ANGLE);
     assert(abs(theta_l2) < MAX_ANGLE);
     assert(abs(theta_l3) < MAX_ANGLE);

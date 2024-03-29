@@ -26,6 +26,7 @@ input_file=cantilever-2d-small.yml
 input_file=cantilever-small-problem-unstable.yml
 input_file=cantilever.yml
 input_file=spinning-top.yml
+input_file=cantilever-contact.yml
 
 
 

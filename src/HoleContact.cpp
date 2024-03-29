@@ -2,7 +2,7 @@
 #include "../include/HoleContact.hpp"
 
 void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *__restrict__ x_hole,
-                              Index *__restrict__ hole_index, const Scalar *__restrict__ r_hole,
+                              vector<Index> &hole_index, const Scalar *__restrict__ r_hole,
                               const Scalar *__restrict__ r_outer_string, const Vec3 *__restrict__ X,
                               const Vec3 *__restrict__ d_trans, const Quaternion *__restrict__ d_rot,
                               const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot,
@@ -10,7 +10,7 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *_
 {
     assert(config.contact_enabled);
 
-    update_hole_contact_indices(N, x_hole, hole_index, X, d_trans);
+    update_hole_contact_indices(N, x_hole, hole_index.data(), X, d_trans);
 
     const Index Ne = N - 1;
 
@@ -24,6 +24,9 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *_
     for (Index i = 0; i < N; i++)
     {
         const Index hi = hole_index[i];
+        // cout << "n glob " << n_glob << endl;
+        // cout << "i " << i << endl;
+        // cout << "hi " << hi << endl;
         assert(is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]) == 0);
         assert(hi < Ne);
         const Vec3 x = X[i] + d_trans[i];
@@ -32,11 +35,15 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *_
         const Vec3 t = (x_hole_B - x_hole_A).normalized();
         const Vec3 x_center = x_hole_A + (x - x_hole_A).dot(t) * t;
         const Scalar d_center = (x - x_center).norm();
-        const Scalar delta = d_center + r_outer_string[i] - r_hole[i];
+        const Scalar delta = d_center + r_outer_string[i] - r_hole[hi];
         if (delta <= 0.0)
         {
             continue;
         }
+
+        // cout << "r string " << r_outer_string[i] << "\n";
+        // cout << "r_hole " << r_hole[hi] << "\n";
+
         const Scalar dX_segment = dX_element_avg(i, X, N); /*Distance between centroids of two elements*/
         const Vec3 n = (x - x_center).normalized();
         const Vec3 omega = d_rot[i].rotate_vector(v_rot[i]); /*angular velocity in global frame*/
@@ -56,6 +63,12 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Vec3 *_
 
         assert(fc.allFinite() && mc.allFinite());
 
+        if (i == 75)
+        { // check if correct
+            cout << "n " << n << endl;
+            cout << "fc" << fc << endl;
+            cout << "mc " << mc << endl;
+        }
         R_ext_trans[i] += fc;
         R_ext_rot[i] += mc;
     }
@@ -90,16 +103,27 @@ inline void update_hole_contact_indices(const Index N, const Vec3 *__restrict__ 
 {
     const Index Ne = N - 1;
     /*Update hole indices*/
+#pragma omp parallel for
     for (Index i = 0; i < N; i++)
     {
         int hi = hole_index[i];
         int is_between = is_node_within_hole_segment(i, x_hole[hi], x_hole[hi + 1], X[i], d_trans[i]);
+        // cerr << "hi orig =" << hi << endl;
+        // cout << "x_hole A\n"
+        //      << x_hole[hi] << endl;
+        // cout << "x_hole B\n"
+        //      << x_hole[hi + 1] << endl;
+        // cout << "x[i]\n " << X[i] + d_trans[i] << endl;
+        // cout << "d_trans\n"
+        //      << d_trans[i] << endl;
+        // cerr << "i=" << i << "is between =" << is_between << endl;
         if (is_between == 0)
         {
             continue;
         }
         else if (is_between == -1)
         {
+            assert(hi > 0);
             /*Search backwards*/
             hi--;
             assert(hi >= 0);
@@ -109,7 +133,10 @@ inline void update_hole_contact_indices(const Index N, const Vec3 *__restrict__ 
                 hi--;
                 assert(hi >= 0);
             }
-            hole_index[i] = hi;
+            hole_index[i] = max(0, hi); /*Not ideal, but more robust than allowing negative int casted to unsigned int */
+
+            // if (hi > Ne)
+            // cerr << "backwards hi=" << hi << endl;
         }
         else
         {
@@ -123,8 +150,17 @@ inline void update_hole_contact_indices(const Index N, const Vec3 *__restrict__ 
                 hi++;
                 assert(hi < Ne);
             }
-            hole_index[i] = hi;
+            hole_index[i] = min(hi, int(Ne - 1));
+            // if (hi > Ne)
+            // cerr << "forwards hi=" << hi << endl;
         }
+
+        // cerr << "i=" << i << ", hi found=" << hole_index[i] << std::endl;
+        // if (hi > Ne)
+        // {
+        //     cout << "abort\n";
+        //     exit(1);
+        // }
     }
 }
 

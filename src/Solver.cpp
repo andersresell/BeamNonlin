@@ -242,7 +242,7 @@ void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole 
 
     if (config.contact_enabled)
     {
-        calc_hole_contact_forces(config, N, borehole.get_X().data(), beam_sys.hole_index.data(),
+        calc_hole_contact_forces(config, N, borehole.get_X().data(), beam_sys.hole_index,
                                  borehole.get_r_hole_element().data(), geometry.get_ro().data(),
                                  geometry.get_X().data(), d_trans.data(), d_rot.data(), v_trans.data(),
                                  v_rot.data(), R_ext_trans.data(), R_ext_rot.data());
@@ -375,7 +375,7 @@ void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &
 
     if (config.contact_enabled)
     {
-        calc_hole_contact_forces(config, N, borehole.get_X().data(), beam_sys.hole_index.data(),
+        calc_hole_contact_forces(config, N, borehole.get_X().data(), beam_sys.hole_index,
                                  borehole.get_r_hole_element().data(), geometry.get_ro().data(),
                                  geometry.get_X().data(), d_trans.data(), d_rot.data(), v_trans.data(),
                                  v_rot.data(), R_ext_trans.data(), R_ext_rot.data());

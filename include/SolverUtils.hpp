@@ -2,6 +2,7 @@
 #include "Containers.hpp"
 #include "Geometry.hpp"
 
+static Index n_glob;
 // struct BeamSystem
 // {
 //     vector<Vec3Quat> u; /*Nodal displacements*/

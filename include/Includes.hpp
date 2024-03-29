@@ -30,11 +30,13 @@ using std::to_string;
 using std::unique_ptr;
 using std::vector;
 
-#define PRINT_DEBUG_MESSAGES 1
+// #define PRINT_DEBUG_MESSAGES 1
 
 #ifndef NDEBUG
 #ifdef PRINT_DEBUG_MESSAGES
 #define DEBUG_ONLY(arg) arg
+#else
+#define DEBUG_ONLY(arg)
 #endif
 #else
 #define DEBUG_ONLY(arg)
