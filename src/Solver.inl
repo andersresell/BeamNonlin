@@ -271,8 +271,8 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
                                       Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
                                       Scalar theta_5l, Scalar theta_6l)
 {
-    const Scalar A = M_PI * (ro * ro - ri * ri);
-    const Scalar I = M_PI / 4 * (ro * ro * ro * ro - ri * ri * ri * ri);
+    const Scalar A = M_PI * (powi<2>(ro) - powi<2>(ri));
+    const Scalar I = M_PI / 4 * (powi<4>(ro) - powi<4>(ri));
     const Scalar J = 2 * I;
 
     /*Normal force (F1)
