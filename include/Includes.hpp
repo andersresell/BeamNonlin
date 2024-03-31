@@ -111,12 +111,12 @@ inline T sqr(T val)
     return val * val;
 }
 
-/*pow where the exponent is a positve integer (since the builtin pow can be slow and inaccurate for integer powers)*/
+/*pow where the exponent is a positive integer (since the builtin pow can be slow and inaccurate for integer powers)*/
 template <Index exp>
 inline Scalar powi(Scalar base)
 {
     static_assert(exp > 0);
-    if constexpr (exp <= 1)
+    if constexpr (exp == 1)
         return base;
     else
         return base * powi<exp - 1>(base);

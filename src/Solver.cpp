@@ -10,14 +10,17 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
     // BattiniBeam::test();
 
     create_output_dir(config);
-    BeamSystem beam_sys{config, geometry};
+    BeamSystem beam_system{config, geometry};
 
-    set_initial_configuration(config, geometry.get_X(), beam_sys.d_trans, beam_sys.d_rot);
+    set_initial_configuration(config, geometry.get_X(), beam_system.d_trans, beam_system.d_rot);
 
-    calc_dt(config, geometry);
+    calc_dt(config, geometry, borehole);
+
+    initialize_hole_contact(geometry, borehole, beam_system);
+
     const Index n_steps = config.get_n_steps();
 
-    calc_static_loads(config, geometry, beam_sys.R_static_trans, beam_sys.R_static_rot);
+    calc_static_loads(config, geometry, beam_system.R_static_trans, beam_system.R_static_rot);
 
     printf("\n"
            "-----------------Starting simulation----------------\n"
@@ -47,11 +50,11 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
                    "\n---------------------------------\n",
                    n, config.t);
 
-            check_energy_balance(config, beam_sys);
+            check_energy_balance(config, beam_system);
         }
 
         // save output
-        save_csv(config, geometry, beam_sys);
+        save_csv(config, geometry, beam_system);
 
         // Debug stuff
         constexpr bool set_disp = false;
@@ -69,10 +72,10 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
             // set external forces to zero
             for (Index i = 0; i < N; i++)
             {
-                beam_sys.R_ext_rot[i].setZero();
-                beam_sys.R_ext_trans[i].setZero();
-                beam_sys.R_static_rot[i].setZero();
-                beam_sys.R_static_trans[i].setZero();
+                beam_system.R_ext_rot[i].setZero();
+                beam_system.R_ext_trans[i].setZero();
+                beam_system.R_static_rot[i].setZero();
+                beam_system.R_static_trans[i].setZero();
             }
 
             Mat3 U = Mat3::Identity();
@@ -80,18 +83,18 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole)
             T = triad_from_euler_angles(10 * M_PI / 180, 0, 0);
             T = triad_from_euler_angles(0, 0, 45 * M_PI / 180);
 
-            beam_sys.d_trans[0] = Vec3{0, 0, 0};
-            beam_sys.d_trans[1] = Vec3{0, 0, 0};
+            beam_system.d_trans[0] = Vec3{0, 0, 0};
+            beam_system.d_trans[1] = Vec3{0, 0, 0};
 
             // beam_sys.d_rot[0].from_matrix(U);
             // beam_sys.d_rot[N - 1].from_matrix(T);
             // beam_sys.v_rot[0] = Vec3::Zero();
             // cout << "omega_mag_orig " << omega_u.norm() << endl;
-            beam_sys.v_rot[N - 1] = {10, 100, 0};
+            beam_system.v_rot[N - 1] = {10, 100, 0};
             // beam_sys.v_trans[N - 1] = {1000, 0, 0};
         }
 
-        step_explicit_SW(config, geometry, borehole, beam_sys);
+        step_explicit_SW(config, geometry, borehole, beam_system);
         // step_explicit_NMB(config, geometry, borehole, beam_sys);
 
         // calculate internal loads
@@ -138,10 +141,10 @@ void calc_forces(const Config &config, const Geometry &geometry, const Borehole 
     }
 }
 
-void calc_dt(Config &config, const Geometry &geometry)
+void calc_dt(Config &config, const Geometry &geometry, const Borehole &borehole)
 {
 
-    Scalar c = sqrt(config.E / config.rho); /*Speed of sound*/
+    const Scalar c = sqrt(config.E / config.rho); /*Speed of sound*/
     Scalar dx_min = std::numeric_limits<Scalar>::max();
     Scalar dt_min = std::numeric_limits<Scalar>::max();
 
@@ -158,6 +161,18 @@ void calc_dt(Config &config, const Geometry &geometry)
         dt_min = min(crit_1, crit_2);
         dx_min = min(dx_min, dx);
         /*Testing the stability crit from table 6.1 in Belytscho*/
+    }
+    /*Find the smallest dx of the borehole*/
+    Scalar dx_min_borehole = std::numeric_limits<Scalar>::max();
+    for (Index ie_bh = 0; ie_bh < borehole.get_N_hole_elements(); ie_bh)
+    {
+        dx_min_borehole = min(dx_min_borehole, borehole.dx(ie_bh));
+    }
+    if (dx_min > dx_min_borehole)
+    {
+        throw runtime_error("The minimum drillstring dx (" + to_string(dx_min) + " m)" +
+                            "must be smaller than the minumum borehole dx (" + to_string(dx_min_borehole) + " m). " +
+                            "This is to ensure robustness of the contact algorithm\n");
     }
 
     assert(dx_min > 0); // just a check
