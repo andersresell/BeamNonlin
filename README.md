@@ -10,9 +10,9 @@ Since the resulting algorithm became unstable after some time for certain highly
 -   A rotation time integration algorithm by Simo and Wong for rigid bodies has been used to integrate the rotations in time. This worked better than the algorithm for explicit integration 
     of rotations described in Crisfield's book (which was an extension of the half-step central difference for rotations). The latter method became unstable when trying to integrate a     
     freely spinning rigid body. The Simo and Wong method proved more robust, but didn't resolve the problem related to torsional vibrations.
--   The corotational Beam element of Battini was implemented in a debug attempt. The implementation was adopted from a python code found on github https://github.com/KlausBSautter/CrBeam3D
-    It was verified that the inner forces produced were identical for the python code and for the code in this project (meaning that my code has now been tested with inner force 
-    calculations from an existing (and hopefully verfified) code). The Battini beam formulation yielded very similar results as the original Crisfield formulation, and the instability 
-    problems still persist. This measure strongly suggests that the issue is not related to the internal force calculations.
+-   The corotational Beam element of Battini was implemented in a debug attempt. The implementation was adopted from a python code found on github (not stated here for copyright reasons, 
+    but google "corotational beam github" and it should appear. was verified that the inner forces produced were identical for the python code and for the code in this project (meaning that 
+    my code has now been tested with inner force calculations from an existing (and hopefully verfified) code). The Battini beam formulation yielded very similar results as the original 
+    Crisfield formulation, and the instability problems still persist. This measure strongly suggests that the issue is not related to the internal force calculations.
 
 The reason for the instabilities are not yet discovered. Wether there is some bug lurking or if the corotational beam formulation is fundamentally problematic when used with explicit time integration is yet unknown to me.
