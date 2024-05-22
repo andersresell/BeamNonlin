@@ -1,7 +1,8 @@
 
-#include "../include/Solver.hpp"
-#include "../include/InputParser.hpp"
 #include "../include/Borehole.hpp"
+#include "../include/Includes.hpp"
+#include "../include/InputParser.hpp"
+#include "../include/Solver.hpp"
 
 inline void test_quat()
 {
@@ -64,10 +65,8 @@ inline void test_quat()
         {
             cout << "Theta " << Theta << endl;
             cout << "Fail\n";
-            cout << "U\n"
-                 << U << endl;
-            cout << "R\n"
-                 << R << endl;
+            cout << "U\n" << U << endl;
+            cout << "R\n" << R << endl;
         }
     }
 
@@ -86,8 +85,7 @@ inline void test_quat()
         {
             cout << "Theta " << Theta << endl;
             cout << "vector rotation failed\n";
-            cout << "vnq " << vnq << endl
-                 << "vnr " << vnr << endl;
+            cout << "vnq " << vnq << endl << "vnr " << vnr << endl;
         }
 
         Vec3 dTheta_u = Vec3::Random();
@@ -121,8 +119,7 @@ inline void test_quat()
         {
             cout << "Theta " << Theta << endl;
             cout << "vector reversed rotation failed\n";
-            cout << "vnq " << vnq << endl
-                 << "vnr " << vnr << endl;
+            cout << "vnq " << vnq << endl << "vnr " << vnr << endl;
         }
     }
 
@@ -170,8 +167,7 @@ int main(int argc, char *argv[])
     }
     catch (exception &e)
     {
-        cerr << "Exception caught:\n"
-             << e.what() << endl;
+        cerr << "Exception caught:\n" << e.what() << endl;
         exit(EXIT_FAILURE);
     }
 }

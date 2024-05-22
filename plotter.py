@@ -10,13 +10,14 @@ import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 SMALL_VAL = 1e-6
-MAX_TRIADS = 20# 6
+MAX_TRIADS = 10
 MAX_NODES=1000
 
 #These are 1-indexed:
 LINE_HEADER_DATA = 2
 LINE_ENERGY_DATA = 4
 FIRST_LINE_OUPUT_DATA=6
+
 
 
 def plot_triad(ax, x,U,scale=1):
@@ -27,14 +28,33 @@ def plot_triad(ax, x,U,scale=1):
     ax.quiver(x[0],x[1],x[2],U[0,1],U[1,1],U[2,1],color="g")
     ax.quiver(x[0],x[1],x[2],U[0,2],U[1,2],U[2,2],color="b")
 
-
-class Plotter:
+def plot_hole(x,r,ax):
+    color="grey"
+    N_hole = x.shape[0]
+    theta = np.linspace(0,2*np.pi,20)
+    e2 = np.array([0.,1.,0.])
+    for i in range(N_hole-1):
+        Rx = r[i]*np.cos(theta)
+        Ry = r[i]*np.sin(theta)
+        Z = np.ones_like(theta)*x[i,0]
+        ax.plot3D(Z,Rx,Ry,color=color)
+        x1 = np.array([x[i,0],x[i+1,0]])
+        x2 = np.array([x[i,1],x[i+1,1]])+r[i]
+        x3 = np.array([x[i,2],x[i+1,2]])
+        ax.plot3D(x1,x2,x3,color=color)
+        
     
+
+class Plotter:    
     def __init__(self,simdir,write_gif=True) -> None:
         os.chdir(simdir)
         print("Python script running from the following directory:\n",os.getcwd())
         self.output_dir = os.path.join(os.getcwd(),"output")
-        header = self.read_header(0)
+        try:
+            header = self.read_header(0)
+        except:
+            print("No output in output directory \"" + self.output_dir + "\", remember to set save_csv=true")
+            exit(1)
         self.N = int(header[0])
         data = self.read_data(0)
         X = data[:,0:3]
@@ -43,6 +63,7 @@ class Plotter:
         self.n_write = int(header[2])
         self.n_plot_triad = max(int(self.N/MAX_TRIADS),1)
         self.check_energy_balance = bool(int(header[5]))
+        self.contact_enabled = bool(int(header[6]))
         self.write_gif=write_gif
         if write_gif:
             self.output_tmp = "output_tmp"
@@ -52,7 +73,10 @@ class Plotter:
             node_stride = int(self.N/MAX_NODES)
             self.i_nodes = np.arange(0,self.N,node_stride)
         else:
-            self.i_nodes = np.arange(0,self.N,1)
+            self.i_nodes = np.arange(0,self.N,1)  
+        
+        self.read_borehole()
+        
     def read_header(self,n):
         return np.genfromtxt(os.path.join(self.output_dir, str(n)+".csv"), delimiter=",", skip_header=LINE_HEADER_DATA-1,max_rows=1)
     def read_data(self,n):
@@ -72,6 +96,19 @@ class Plotter:
         header = self.read_header(n)
         self.t = header[3]
         self.dt = header[4]
+        
+    def read_borehole(self):
+        if self.contact_enabled:
+            file=os.path.join(self.output_dir,"borehole.csv")
+            #header
+            data = np.genfromtxt(file,delimiter=",",skip_header=1,max_rows=1)
+            self.N_hole=data
+            #hole geometry
+            data = np.genfromtxt(file,delimiter=",",skip_header=3)
+            assert data.shape[0]==(self.N_hole)
+            self.x_hole = data[:,0:3]
+            self.r_hole = data[:-1,3]
+        
         
     def animate_3d(self):
         ax = plt.figure(figsize=(8,6)).add_subplot(111,projection="3d")
@@ -100,6 +137,7 @@ class Plotter:
             plt.axis("equal")
             # title = "n={: <6}, t={: <6}, dt={: <6}".format(n, t, dt)
             # plt.title(title)
+            if self.contact_enabled: plot_hole(self.x_hole,self.r_hole,ax)
            
             plt.title("n="+str(n)+", t="+str(self.t)+", dt="+str(self.dt))
             
@@ -284,7 +322,8 @@ class Plotter:
             
 
 if __name__ == "__main__":
-
+    
+    
     p = Plotter("testing",write_gif=False)
     p.plot_specific_kinetic_energy_component_wise()
     #p.plot_end_node_transient()

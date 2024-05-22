@@ -19,7 +19,7 @@ BUILD_DIR_RELEASE = $(BeamNonlinHome)/build_release
 
 
 CXX_FLAGS_COMMON = -Wall -Wno-unused-function -fmax-errors=1 -lyaml-cpp -fopenmp 
-CXX_FLAGS_COMMON += -fno-math-errno -fno-trapping-math #use these? have heard it's possibly unsafe to use -ffast-math
+#CXX_FLAGS_COMMON += -fno-math-errno -fno-trapping-math #use these? have heard it's possibly unsafe to use -ffast-math
 CXX_FLAGS = $(CXX_FLAGS_COMMON)
 
 ifeq ($(BUILD_TYPE), debug)
@@ -30,7 +30,7 @@ ifeq ($(BUILD_TYPE), debug)
 	CXX_FLAGS += -I$(YAML_CPP_INSTALL_DIR)/include -L$(YAML_CPP_INSTALL_DIR)/lib 
 else ifeq ($(BUILD_TYPE), release)
 	BUILD_DIR = $(BUILD_DIR_RELEASE)
-	CXX_FLAGS += -DNDEBUG  -O3 #-march=native 
+	CXX_FLAGS += -DNDEBUG  -O3 #-march=native -flto
 else
     $(error Unsupported build type specified: $(BUILD_TYPE). Valid types are "debug" and "release")
 endif

@@ -1,19 +1,15 @@
 
 #include "../include/HoleContact.hpp"
 
-void calc_hole_contact_forces(const Config &config, const Index N, const Index N_hole,
-                              const Vec3 *__restrict__ x_hole,
-                              Index *__restrict__ hole_index, const Scalar *__restrict__ r_hole,
-                              const Scalar *__restrict__ r_outer_string, const Vec3 *__restrict__ X,
-                              const Vec3 *__restrict__ d_trans, const Quaternion *__restrict__ d_rot,
-                              const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot,
-                              Vec3 *__restrict__ R_ext_trans, Vec3 *__restrict__ R_ext_rot)
-{
+void calc_hole_contact_forces(const Config &config, const Index N, const Index N_hole, const vector<Vec3> &x_hole,
+                              vector<Index> &hole_index, const vector<Scalar> &r_hole,
+                              const vector<Scalar> &r_outer_string, const vector<Vec3> &X, const vector<Vec3> &d_trans,
+                              const vector<Quaternion> &d_rot, const vector<Vec3> &v_trans, const vector<Vec3> &v_rot,
+                              vector<Vec3> &R_ext_trans, vector<Vec3> &R_ext_rot) {
     assert(config.contact_enabled);
 
     update_hole_contact_indices<false>(N, N_hole, x_hole, r_hole, hole_index, X, d_trans);
 
-    const Index Ne = N - 1;
     const Index Ne_hole = N_hole - 1;
 
     const Scalar mu_s = config.mu_static;
@@ -23,12 +19,8 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
     const Scalar C_c = config.C_contact;
 
 #pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         const Index hi = hole_index[i];
-        // cout << "n glob " << n_glob << endl;
-        // cout << "i " << i << endl;
-        // cout << "hi " << hi << endl;
         assert(hi < Ne_hole);
         const Vec3 x = X[i] + d_trans[i];
         assert(node_within_hole_segment(hi, N_hole, x_hole, r_hole[hi], x) == 0);
@@ -38,8 +30,7 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
         const Vec3 x_center = x_hole_A + (x - x_hole_A).dot(t) * t;
         const Scalar d_center = (x - x_center).norm();
         const Scalar delta = d_center + r_outer_string[i] - r_hole[hi];
-        if (delta <= 0.0)
-        {
+        if (delta <= 0.0) {
             continue;
         }
 
@@ -99,14 +90,13 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
     }
 }
 
-inline int node_within_hole_segment(const Index ie_h, const Index N_hole, const Vec3 *__restrict__ x_hole,
-                                    const Scalar r_hole, const Vec3 &x)
-{
+inline int node_within_hole_segment(const Index ie_h, const Index N_hole, const vector<Vec3> &x_hole,
+                                    const Scalar r_hole, const Vec3 &x) {
     const Index Ne_hole = N_hole - 1;
     assert(ie_h < Ne_hole);
 
-    const Vec3 &x_hole_A = x_hole[ie_h + 1];
-    const Vec3 &x_hole_B = x_hole[ie_h];
+    const Vec3 &x_hole_A = x_hole[ie_h];
+    const Vec3 &x_hole_B = x_hole[ie_h + 1];
 
     const Vec3 t = (x_hole_B - x_hole_A).normalized();
     const Scalar l_hole_seg = (x_hole_B - x_hole_A).norm();
@@ -115,43 +105,32 @@ inline int node_within_hole_segment(const Index ie_h, const Index N_hole, const 
     const bool is_between = dist >= -SMALL_SCALAR && dist <= l_hole_seg + SMALL_SCALAR;
 
 #define MAX_ALLOWABLE_HOLE_PAIR_ANGLE 10 * M_PI / 180
-    if (is_between)
-    {
+    if (is_between) {
         return 0;
-    }
-    else if (dist < 0)
-    {
-        if (ie_h == 0)
-        {
+    } else if (dist < 0) {
+        if (ie_h == 0) {
             return -1;
-        }
-        else
-        {
+        } else {
             assert(ie_h > 0);
             const Vec3 &x_hole_prev = x_hole[ie_h - 1];
             const Vec3 t_prev = (x_hole_A - x_hole_prev).normalized();
             const Scalar theta = acos(t.dot(t_prev)) + M_PI;
             assert(theta >= 0 && theta < MAX_ALLOWABLE_HOLE_PAIR_ANGLE);
             const Scalar extra_search_dist = r_hole * tan(theta);
-            assert(extra_search_dist > 0);
+            assert(extra_search_dist > -SMALL_SCALAR);
             return (extra_search_dist + SMALL_SCALAR > -dist) ? 0 : -1;
         }
-    }
-    else
-    {
+    } else {
         assert(dist > 0);
-        if (ie_h == Ne_hole - 1)
-        {
+        if (ie_h == Ne_hole - 1) {
             return 1;
-        }
-        else
-        {
-            const Vec3 &x_hole_next = x_hole[ie_h + 1];
-            const Vec3 t_next = (x_hole_next - x_hole_B);
-            const Scalar theta = acos(t.dot(t_next)) + M_PI;
+        } else {
+            const Vec3 &x_hole_next = x_hole[ie_h + 2];
+            const Vec3 t_next = (x_hole_next - x_hole_B).normalized();
+            const Scalar theta = acos(t.dot(t_next));
             assert(theta >= 0 && theta < MAX_ALLOWABLE_HOLE_PAIR_ANGLE);
             const Scalar extra_search_dist = r_hole * tan(theta);
-            assert(extra_search_dist > 0);
+            assert(extra_search_dist > -SMALL_SCALAR);
             return (extra_search_dist + SMALL_SCALAR > dist) ? 0 : 1;
         }
     }
@@ -159,84 +138,71 @@ inline int node_within_hole_segment(const Index ie_h, const Index N_hole, const 
 }
 
 template <bool initial_search>
-inline void update_hole_contact_indices(const Index N, const Index N_hole, const Vec3 *__restrict__ x_hole,
-                                        const Scalar *__restrict__ r_e_hole,
-                                        Index *__restrict__ hole_index, const Vec3 *__restrict__ X,
-                                        const Vec3 *__restrict__ d_trans)
-{
+inline void update_hole_contact_indices(const Index N, const Index N_hole, const vector<Vec3> &x_hole,
+                                        const vector<Scalar> &r_e_hole, vector<Index> &hole_index,
+                                        const vector<Vec3> &X, const vector<Vec3> &d_trans) {
     const Index Ne_hole = N_hole - 1;
 
-    if constexpr (initial_search)
-    { /*If its the initial search (all indices are zero from before), the search is more
-    involved*/
-        for (Index i = 0; i < N; i++)
-        {
+    if constexpr (initial_search) { /*If its the initial search (all indices are zero from before), the search is more
+                                  involved*/
+        for (Index i = 0; i < N; i++) {
             int hi = hole_index[i];
             assert(hi == 0); /*Initial value of hi*/
+
             int search_dir = node_within_hole_segment(hi, N_hole, x_hole, r_e_hole[hi], X[i] + d_trans[i]);
 
-            if (search_dir == 0)
-            {
+            if (search_dir == 0) {
                 continue;
-            }
-            else if (search_dir == -1)
-            {
+            } else if (search_dir == -1) {
                 /*Search backwards*/
-                while (search_dir != 0)
-                {
-                    search_dir = node_within_hole_segment(hi, N_hole, x_hole, r_e_hole[hi], X[i] + d_trans[i]);
+                while (search_dir != 0) {
                     assert(search_dir == -1);
                     hi--;
                     assert(hi >= 0);
-                    if (hi < 0)
-                    {
+                    if (hi < 0) {
                         throw runtime_error("Hole index (" + to_string(hi) + ") < num hole elements (" +
                                             to_string(Ne_hole) + ") found for node i=" + to_string(i));
                     }
-                }
-                hole_index[i] = max(0, hi); /*Not ideal, but more robust than allowing negative int casted to unsigned int */
-            }
-            else
-            {
-                /*Search forwards*/
-                while (search_dir != 0)
-                {
                     search_dir = node_within_hole_segment(hi, N_hole, x_hole, r_e_hole[hi], X[i] + d_trans[i]);
+                }
+                hole_index[i] =
+                    max(0, hi); /*Not ideal, but more robust than allowing negative int casted to unsigned int */
+            } else {
+                /*Search forwards*/
+                while (search_dir != 0) {
                     assert(search_dir == 1);
                     hi++;
                     assert(hi < Ne_hole);
-                    if (hi >= Ne_hole)
-                    {
+                    if (hi >= Ne_hole) {
                         throw runtime_error("Hole index (" + to_string(hi) + ") >= num hole elements (" +
                                             to_string(Ne_hole) + ") found for node i=" + to_string(i));
                     }
+                    search_dir = node_within_hole_segment(hi, N_hole, x_hole, r_e_hole[hi], X[i] + d_trans[i]);
                 }
                 hole_index[i] = min(hi, int(Ne_hole - 1));
             }
         }
-    }
-    else
-    { /*In later searches its assumed that the new hole index is found on the first try*/
+    } else { /*In later searches its assumed that the hole index is updated on the first try,
+           since the node will cross no more than one hole element boundaries per timestep*/
 #pragma omp parallel for
-        for (Index i = 0; i < N; i++)
-        {
-            int &hi = hole_index[i];
-            assert(hi > 0 && hi < Ne_hole);
+        for (Index i = 0; i < N; i++) {
+            int hi = hole_index[i];
+            assert(hi >= 0 && hi < Ne_hole);
             const int search_dir = node_within_hole_segment(hi, N_hole, x_hole, r_e_hole[hi], X[i] + d_trans[i]);
             hi += search_dir;
-            assert(hi > 0 && hi < Ne_hole);
-            hi = max(0, min(hi, Ne_hole - 1)); /*Should ideally not happen, but this is done to increase robustness and avoid avoid segaults etc. */
+            assert(hi >= 0 && hi < Ne_hole);
+            hi = max(0, min(hi, int(Ne_hole - 1))); /*Should ideally not happen, but this is done to increase robustness
+                                                       and avoid avoid segaults etc. */
+            hole_index[i] = hi;
         }
     }
 }
 
-inline Scalar dX_e(Index ie, const Vec3 *X)
-{
+inline Scalar dX_e(Index ie, const vector<Vec3> &X) {
     return (X[ie + 1] - X[ie]).norm();
 }
 
-inline Scalar dX_element_avg(Index i, const Vec3 *X, const Index N)
-{
+inline Scalar dX_element_avg(Index i, const vector<Vec3> &X, const Index N) {
     assert(i < N);
     const Index Ne = N - 1;
     if (i == 0)
@@ -247,22 +213,20 @@ inline Scalar dX_element_avg(Index i, const Vec3 *X, const Index N)
         return (dX_e(i - 1, X) + dX_e(i, X)) / 2;
 }
 
-void initialize_hole_contact(const Geometry &geometry, const Borehole &borehole, BeamSystem &beam_system)
-{
+void initialize_hole_contact(const Config &config, const Geometry &geometry, const Borehole &borehole,
+                             BeamSystem &beam) {
+    if (!config.contact_enabled)
+        return;
 
     constexpr bool initial_search = true;
-    try
-    {
+    try {
         printf("Starting initial hole contact detection. N hole nodes = %i, N string nodes = %i\n",
                borehole.get_N_hole_nodes(), geometry.get_N());
 
-        update_hole_contact_indices<initial_search>(geometry.get_N(), borehole.get_N_hole_nodes(),
-                                                    borehole.get_x().data(), borehole.get_r_hole_element().data(),
-                                                    beam_system.hole_index.data(), geometry.get_X().data(),
-                                                    beam_system.d_trans.data());
-    }
-    catch (const exception &e)
-    {
+        update_hole_contact_indices<initial_search>(geometry.get_N(), borehole.get_N_hole_nodes(), borehole.get_x(),
+                                                    borehole.get_r_hole_element(), beam.hole_index, geometry.get_X(),
+                                                    beam.d_trans);
+    } catch (const exception &e) {
         throw runtime_error("Hole contact initialization failed\n" + string(e.what()));
     }
 }

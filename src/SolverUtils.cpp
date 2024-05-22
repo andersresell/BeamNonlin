@@ -1,8 +1,6 @@
 #include "../include/SolverUtils.hpp"
 
-BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
-    : W_int{0}, W_ext{0}, KE{0}
-{
+BeamSystem::BeamSystem(const Config &config, const Geometry &geometry) : W_int{0}, W_ext{0}, KE{0} {
     const Index N = geometry.get_N();
     const Index Ne = N - 1;
     d_trans.resize(N, Vec3::Zero());
@@ -22,26 +20,22 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
     M.resize(N, 0.0);
     J_u.resize(N, Vec3::Zero());
 
-    if (config.contact_enabled)
-    {
+    if (config.contact_enabled) {
         hole_index.resize(N);
     }
 
-    if (config.check_energy_balance)
-    {
+    if (config.check_energy_balance) {
         delta_d_trans.resize(N);
         delta_d_rot.resize(N);
     }
 
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         d_rot[i].from_matrix(Mat3::Identity());
     }
 
     const Scalar rho = config.rho;
 
-    for (Index ie = 0; ie < Ne; ie++)
-    {
+    for (Index ie = 0; ie < Ne; ie++) {
         Scalar dx = geometry.dx_e(ie);
         Scalar A = geometry.A_e(ie);
         Scalar m = rho * dx * A;
@@ -75,7 +69,8 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
         // Je11 *= 30;
         Scalar Je22;
         // Je22 = rho * M_PI * dx / 12 * (3 * (pow(ro, 4) - pow(ri, 4)) + dx * dx * (ro * ro - ri * ri));
-        Je22 = 1.0 / 12 * m * dx * dx; // Moment of inertia of thin rod. Using this instead of the exact moment of inertia as Belytscho does
+        Je22 = 1.0 / 12 * m * dx *
+               dx; // Moment of inertia of thin rod. Using this instead of the exact moment of inertia as Belytscho does
         // Je22 *= 1;
         Scalar Je33 = Je22;
 
@@ -99,8 +94,7 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry)
     // }
 }
 
-void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &beam_system)
-{
+void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &beam) {
     using namespace std;
     Index n = config.n;
     Index n_w = config.n_write;
@@ -110,63 +104,85 @@ void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &
     string filename = config.output_dir + to_string(n) + ".csv";
     ofstream ost{filename};
 
-    if (!ost)
-    {
+    if (!ost) {
         throw runtime_error{"Failed to open output file: " + filename + "\n"};
     }
 
-    Index N = geometry.get_N();
-    Index n_steps = config.get_n_steps();
-    Scalar t = config.t;
-    Scalar dt = config.dt;
-    bool check_energy = config.check_energy_balance;
+    const Index N = geometry.get_N();
 
     /*Create "header"*/
-    ost << "#N, n_steps, n_write, t, dt, check_energy_balance\n"
-        << N << "," << n_steps << "," << n_w << "," << t << "," << dt << "," << check_energy << "\n";
+    ost << "#N, n_steps, n_write, t, dt, check_energy_balance, contact_enabled\n"
+        << N << "," << config.get_n_steps() << "," << n_w << "," << config.t << "," << config.dt << ","
+        << config.check_energy_balance << "," << config.contact_enabled << "\n";
     /*Write energy*/
-    if (check_energy)
-    {
-        Scalar E_tot = beam_system.KE + beam_system.W_int - beam_system.W_ext;
+    if (config.check_energy_balance) {
+        Scalar E_tot = beam.KE + beam.W_int - beam.W_ext;
         ost << "KE, W_int, W_ext, E_tot\n"
-            << beam_system.KE << ", " << beam_system.W_int << ", " << beam_system.W_ext << ", " << E_tot << "\n";
-    }
-    else
-    {
+            << beam.KE << ", " << beam.W_int << ", " << beam.W_ext << ", " << E_tot << "\n ";
+    } else {
         ost << "\n\n";
     }
 
     /*Write solution*/
     Index w = 12;
-    ost << setw(w) << "#X1," << setw(w) << "X2," << setw(w) << "X3,"
-        << setw(w) << "d1," << setw(w) << "d2," << setw(w) << "d3,"
-        << setw(w) << "U11," << setw(w) << "U12," << setw(w) << "U13,"
-        << setw(w) << "U21," << setw(w) << "U22," << setw(w) << "U23,"
-        << setw(w) << "U31," << setw(w) << "U32," << setw(w) << "U33 "
-        << setw(w) << "v1," << setw(w) << "v2," << setw(w) << "v3,"
-        << setw(w) << "omega_u_1," << setw(w) << "omega_u_2," << setw(w) << "omega_u_3"
+    ost << setw(w) << "#X1," << setw(w) << "X2," << setw(w) << "X3," << setw(w) << "d1," << setw(w) << "d2," << setw(w)
+        << "d3," << setw(w) << "U11," << setw(w) << "U12," << setw(w) << "U13," << setw(w) << "U21," << setw(w)
+        << "U22," << setw(w) << "U23," << setw(w) << "U31," << setw(w) << "U32," << setw(w) << "U33 " << setw(w)
+        << "v1," << setw(w) << "v2," << setw(w) << "v3," << setw(w) << "omega_u_1," << setw(w) << "omega_u_2,"
+        << setw(w) << "omega_u_3"
         << "\n";
     w -= 1;
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         const Vec3 &X = geometry.get_X()[i];
-        const Vec3 &d = beam_system.d_trans[i];
-        const Mat3 &U = beam_system.d_rot[i].to_matrix();
-        const Vec3 &v = beam_system.v_trans[i];
-        const Vec3 &omega_u = beam_system.v_rot[i];
+        const Vec3 &d = beam.d_trans[i];
+        const Mat3 &U = beam.d_rot[i].to_matrix();
+        const Vec3 &v = beam.v_trans[i];
+        const Vec3 &omega_u = beam.v_rot[i];
 
-        ost << setw(w) << X.x() << "," << setw(w) << X.y() << "," << setw(w) << X.z() << ","
-            << setw(w) << d.x() << "," << setw(w) << d.y() << "," << setw(w) << d.z() << ","
-            << setw(w) << U(0, 0) << "," << setw(w) << U(0, 1) << "," << setw(w) << U(0, 2) << ","
-            << setw(w) << U(1, 0) << "," << setw(w) << U(1, 1) << "," << setw(w) << U(1, 2) << ","
-            << setw(w) << U(2, 0) << "," << setw(w) << U(2, 1) << "," << setw(w) << U(2, 2) << ","
-            << setw(w) << v.x() << "," << setw(w) << v.y() << "," << setw(w) << v.z() << ","
-            << setw(w) << omega_u.x() << "," << setw(w) << omega_u.y() << "," << setw(w) << omega_u.z() << "\n";
+        ost << setw(w) << X.x() << "," << setw(w) << X.y() << "," << setw(w) << X.z() << "," << setw(w) << d.x() << ","
+            << setw(w) << d.y() << "," << setw(w) << d.z() << "," << setw(w) << U(0, 0) << "," << setw(w) << U(0, 1)
+            << "," << setw(w) << U(0, 2) << "," << setw(w) << U(1, 0) << "," << setw(w) << U(1, 1) << "," << setw(w)
+            << U(1, 2) << "," << setw(w) << U(2, 0) << "," << setw(w) << U(2, 1) << "," << setw(w) << U(2, 2) << ","
+            << setw(w) << v.x() << "," << setw(w) << v.y() << "," << setw(w) << v.z() << "," << setw(w) << omega_u.x()
+            << "," << setw(w) << omega_u.y() << "," << setw(w) << omega_u.z() << "\n";
     }
 }
 
-void create_output_dir(Config &config)
-{
+void write_borehole(const Config &config, const Borehole &borehole) {
+    using namespace std;
+    if (!config.contact_enabled)
+        return;
+
+    string filename = config.output_dir + "borehole.csv";
+    ofstream ost{filename};
+
+    if (!ost) {
+        throw runtime_error{"Failed to open file: " + filename + "\n"};
+    }
+
+    const Index N_hole = borehole.get_N_hole_nodes();
+    const vector<Vec3> &x = borehole.get_x();
+    const vector<Scalar> &r_hole = borehole.get_r_hole_element();
+
+    /*Create "header"*/
+    ost << "#N_hole \n" << N_hole << "\n";
+
+    /*Write solution*/
+    Index w = 12;
+    ost << setw(w) << "#X1," << setw(w) << "X2," << setw(w) << "X3," << setw(w) << "r_hole"
+        << "\n";
+    w -= 1;
+    for (Index i = 0; i < N_hole; i++) {
+        const Vec3 &x = borehole.get_x()[i];
+        constexpr Scalar NaN = std::numeric_limits<Scalar>::quiet_NaN(); // Setting the last undefined value to nan
+                                                                         // (since there is one less r than x)
+        const Scalar r = (i < N_hole - 1) ? borehole.get_r_hole_element()[i] : NaN;
+
+        ost << setw(w) << x.x() << "," << setw(w) << x.y() << "," << setw(w) << x.z() << "," << setw(w) << r << "\n";
+    }
+}
+
+void create_output_dir(Config &config) {
     using namespace std;
 
     string &base_dir = config.base_dir;
@@ -178,15 +194,12 @@ void create_output_dir(Config &config)
 
     output_dir = base_dir + "output/";
 
-    if (filesystem::exists(output_dir))
-    {
-        if (!filesystem::remove_all(output_dir))
-        {
+    if (filesystem::exists(output_dir)) {
+        if (!filesystem::remove_all(output_dir)) {
             throw runtime_error{"Couldn't remove old output directory: " + output_dir};
         }
     }
-    if (!filesystem::create_directory(output_dir))
-    {
+    if (!filesystem::create_directory(output_dir)) {
         throw runtime_error{string("Failed to create output directory:" + output_dir + "\n")};
     }
 }

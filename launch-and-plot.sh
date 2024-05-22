@@ -9,6 +9,8 @@ else
     echo "simulation returned with errors"
     exit 1
 fi
-
  
 python plotter.py
+
+
+

@@ -2,15 +2,13 @@
 #pragma once
 #include "../include/Solver.hpp"
 
-inline Vec12 calc_approx_rayleigh_beta_damping(const Scalar beta, const Scalar ri, const Scalar ro, const Scalar l0,
-                                               const Scalar youngs, const Scalar G, const Mat3 &E,
-                                               const Mat3 &U1, const Mat3 &U2,
-                                               const Vec3 &v1, const Vec3 &v2, const Vec3 &omega1_u,
-                                               const Vec3 &omega2_u)
-{ /*Basing this on the formula R_damp_l = beta * k_l * v_l,
- First the local velocity v_l is computed by rotating the global components,
- then the local damping is computed, and finally the resulting force is
- rotated to global components*/
+inline Vec12 calc_approx_rayleigh_beta_damping(
+    const Scalar beta, const Scalar ri, const Scalar ro, const Scalar l0, const Scalar youngs, const Scalar G,
+    const Mat3 &E, const Mat3 &U1, const Mat3 &U2, const Vec3 &v1, const Vec3 &v2, const Vec3 &omega1_u,
+    const Vec3 &omega2_u) { /*Basing this on the formula R_damp_l = beta * k_l * v_l,
+                           First the local velocity v_l is computed by rotating the global components,
+                           then the local damping is computed, and finally the resulting force is
+                           rotated to global components*/
 
     const Vec3 v1_l = E.transpose() * v1;
     const Vec3 v2_l = E.transpose() * v2;
@@ -25,17 +23,12 @@ inline Vec12 calc_approx_rayleigh_beta_damping(const Scalar beta, const Scalar r
     const Mat4 k_EB = Mat4{{12, 6 * l0, -12, 6 * l0},
                            {6 * l0, 4 * l0 * l0, -6 * l0, 2 * l0 * l0},
                            {-12, -6 * l0, 12, -6 * l0},
-                           {6 * l0, 2 * l0 * l0,
-                            -6 * l0, 4 * l0 * l0}} *
+                           {6 * l0, 2 * l0 * l0, -6 * l0, 4 * l0 * l0}} *
                       youngs * I / (l0 * l0 * l0);
 
     const Scalar K = J; // cicular cross-section
-    const Mat2 k_tor = Mat2{{1, -1},
-                            {-1, 1}} *
-                       G * K / l0;
-    const Mat2 k_x = Mat2{{1, -1},
-                          {-1, 1}} *
-                     youngs * A / l0;
+    const Mat2 k_tor = Mat2{{1, -1}, {-1, 1}} * G * K / l0;
+    const Mat2 k_x = Mat2{{1, -1}, {-1, 1}} * youngs * A / l0;
 
     const Vec2 v_x = {v1_l.x(), v2_l.x()};
     const Vec2 v_tor = {omega1_l.x(), omega2_l.x()};
@@ -57,12 +50,11 @@ inline Vec12 calc_approx_rayleigh_beta_damping(const Scalar beta, const Scalar r
     return R_damp;
 }
 
-inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X, const Vec3 *__restrict__ d_trans,
-                                      const Quaternion *__restrict__ d_rot, Vec3 *__restrict__ R_int_trans,
-                                      Vec3 *__restrict__ R_int_rot, const Scalar ri_e, const Scalar ro_e, const Scalar youngs,
-                                      const Scalar G, const Scalar beta_rayleigh, const Vec3 *__restrict__ v_trans,
-                                      const Vec3 *__restrict__ v_rot)
-{
+inline void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, const vector<Vec3> &d_trans,
+                                      const vector<Quaternion> &d_rot, vector<Vec3> &R_int_trans,
+                                      vector<Vec3> &R_int_rot, const Scalar ri_e, const Scalar ro_e,
+                                      const Scalar youngs, const Scalar G, const Scalar beta_rayleigh,
+                                      const vector<Vec3> &v_trans, const vector<Vec3> &v_rot) {
 
     // assert(i&e < X.size() - 1);
     const Vec3 &X1 = X[ie];
@@ -70,13 +62,9 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     const Vec3 &d1 = d_trans[ie];
     const Vec3 &d2 = d_trans[ie + 1];
 
-    DEBUG_ONLY(
-        cout << "X1 " << X1.transpose() << endl;
-        cout << "X2 " << X2.transpose() << endl;);
+    DEBUG_ONLY(cout << "X1 " << X1.transpose() << endl; cout << "X2 " << X2.transpose() << endl;);
 
-    DEBUG_ONLY(
-        cout << "d1 " << d1.transpose() << endl;
-        cout << "d2 " << d2.transpose() << endl;);
+    DEBUG_ONLY(cout << "d1 " << d1.transpose() << endl; cout << "d2 " << d2.transpose() << endl;);
     const Mat3 T = d_rot[ie].to_matrix();
     const Vec3 &t1 = T.col(0);
     const Vec3 &t2 = T.col(1);
@@ -87,12 +75,11 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     const Vec3 &u2 = U.col(1);
     const Vec3 &u3 = U.col(2);
 
-    DEBUG_ONLY(
-        cout << "U from quat\n"
-             << U << endl;
+    DEBUG_ONLY(cout << "U from quat\n"
+                    << U << endl;
 
-        cout << "T from quat\n"
-             << T << endl;);
+               cout << "T from quat\n"
+                    << T << endl;);
 
     // calculate the first unit vector
     const Scalar l0 = (X2 - X1).norm();
@@ -102,8 +89,7 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     E.col(0) = (X2 + d2 - (X1 + d1)) / ln;
     const Vec3 &e1 = E.col(0);
     assert(is_close(e1.norm(), 1.0));
-    DEBUG_ONLY(
-        cout << "e1 = " << e1.transpose() << endl;);
+    DEBUG_ONLY(cout << "e1 = " << e1.transpose() << endl;);
     // Calculate intermediate rotation between triads
     const Mat3 DeltaR = U * T.transpose();
     Quaternion qDeltaR;
@@ -145,15 +131,11 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     const Scalar theta_l5 = asin(0.5 * (-u2.dot(e1) + u1.dot(e2)));
     const Scalar theta_l6 = asin(0.5 * (-u3.dot(e1) + u1.dot(e3)));
 
-    DEBUG_ONLY(
-        cout << "Delta torsion [deg] " << 180 / M_PI * (theta_l4 - theta_l1) << endl;
-        cout << "ul " << ul << endl;
-        cout << "theta_l1 " << theta_l1 << endl;
-        cout << "theta_l2 " << theta_l2 << endl;
-        cout << "theta_l3 " << theta_l3 << endl;
-        cout << "theta_l4 " << theta_l4 << endl;
-        cout << "theta_l5 " << theta_l5 << endl;
-        cout << "theta_l6 " << theta_l6 << endl;);
+    DEBUG_ONLY(cout << "Delta torsion [deg] " << 180 / M_PI * (theta_l4 - theta_l1) << endl;
+               cout << "ul " << ul << endl; cout << "theta_l1 " << theta_l1 << endl;
+               cout << "theta_l2 " << theta_l2 << endl; cout << "theta_l3 " << theta_l3 << endl;
+               cout << "theta_l4 " << theta_l4 << endl; cout << "theta_l5 " << theta_l5 << endl;
+               cout << "theta_l6 " << theta_l6 << endl;);
 
     // cout << "n_glob " << n_glob << endl;
     // assert(theta_l1 == 0);
@@ -195,10 +177,8 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
 
     Mat3 L1r2 = 0.5 * r2.dot(e1) * A + 0.5 * A * r2 * (e1 + r1).transpose();
     Mat3 L1r3 = 0.5 * r3.dot(e1) * A + 0.5 * A * r3 * (e1 + r1).transpose();
-    Mat3 L2r2 = 0.5 * skew(r2) - 0.25 * r2.transpose() * e1 * skew(r1) -
-                0.25 * skew(r2) * e1 * (e1 + r1).transpose();
-    Mat3 L2r3 = 0.5 * skew(r3) - 0.25 * r3.transpose() * e1 * skew(r1) -
-                0.25 * skew(r3) * e1 * (e1 + r1).transpose();
+    Mat3 L2r2 = 0.5 * skew(r2) - 0.25 * r2.transpose() * e1 * skew(r1) - 0.25 * skew(r2) * e1 * (e1 + r1).transpose();
+    Mat3 L2r3 = 0.5 * skew(r3) - 0.25 * r3.transpose() * e1 * skew(r1) - 0.25 * skew(r3) * e1 * (e1 + r1).transpose();
 
     Eigen::Matrix<Scalar, 12, 3> Lr2, Lr3;
     Lr2 << L1r2, L2r2, -L1r2, L2r2;
@@ -216,21 +196,21 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     F_transpose.col(f5) = 1 / (2 * cos(theta_l2)) * (Lr2 * t1 + h2);
     F_transpose.col(f6) = 1 / (2 * cos(theta_l3)) * (Lr3 * t1 + h3);
     F_transpose.col(f10) = 1 / (2 * cos(theta_l4)) * (Lr3 * u2 - Lr2 * u3 + h4);
-    F_transpose.col(f11) = 1 / (2 * cos(theta_l5)) * (Lr2 * u1 + h5); // seems to be an error in the book for f11 and f12. it should be + in front of h6 and h6 (it's + in the paper)
+    F_transpose.col(f11) =
+        1 / (2 * cos(theta_l5)) * (Lr2 * u1 + h5); // seems to be an error in the book for f11 and f12. it should be +
+                                                   // in front of h6 and h6 (it's + in the paper)
     F_transpose.col(f12) = 1 / (2 * cos(theta_l6)) * (Lr3 * u1 + h6);
 
     // cout << "F^T\n"
     //      << F.transpose() << endl;
 
     /*Calculate local internal forces based on linear 3D beam theory*/
-    const Vec7 R_int_e_l = calc_element_forces_local(ri_e, ro_e, l0, youngs, G, ul,
-                                                     theta_l1, theta_l2, theta_l3, theta_l4, theta_l5, theta_l6);
+    const Vec7 R_int_e_l = calc_element_forces_local(ri_e, ro_e, l0, youngs, G, ul, theta_l1, theta_l2, theta_l3,
+                                                     theta_l4, theta_l5, theta_l6);
 
-    DEBUG_ONLY(
-        cout << "R_int_e_l:\n"
-             << R_int_e_l << endl;);
+    DEBUG_ONLY(cout << "R_int_e_l:\n" << R_int_e_l << endl;);
 
-    const Vec12 R_int_e = F_transpose * R_int_e_l;
+    Vec12 R_int_e = F_transpose * R_int_e_l;
 
     // const Scalar area = M_PI * (ro_e * ro_e - ri_e * ri_e);
     // const Scalar Iy = M_PI / 4 * (ro_e * ro_e * ro_e * ro_e - ri_e * ri_e * ri_e * ri_e);
@@ -242,14 +222,11 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     // R_int_e = R_int_battini;
 
     assert(R_int_e.allFinite());
-    DEBUG_ONLY(
-        cout << "R_int_e:\n"
-             << R_int_e << endl;);
+    DEBUG_ONLY(cout << "R_int_e:\n" << R_int_e << endl;);
 
     const Vec12 R_damp = calc_approx_rayleigh_beta_damping(beta_rayleigh, ri_e, ro_e, l0, youngs, G, E, U, T,
                                                            v_trans[ie], v_trans[ie + 1], v_rot[ie], v_rot[ie + 1]);
-    DEBUG_ONLY(cout << "R_damp\n"
-                    << R_damp << endl;);
+    DEBUG_ONLY(cout << "R_damp\n" << R_damp << endl;);
     R_int_trans[ie] += R_int_e.segment(0, 3);
     R_int_rot[ie] += R_int_e.segment(3, 3);
     R_int_trans[ie + 1] += R_int_e.segment(6, 3);
@@ -267,12 +244,12 @@ inline void calc_element_inner_forces(const Index ie, const Vec3 *__restrict__ X
     // assert(diff.norm() < 1e-1);
 }
 
-inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
-                                      Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
-                                      Scalar theta_5l, Scalar theta_6l)
-{
+inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul, Scalar theta_1l,
+                                      Scalar theta_2l, Scalar theta_3l, Scalar theta_4l, Scalar theta_5l,
+                                      Scalar theta_6l) {
     const Scalar A = M_PI * (powi<2>(ro) - powi<2>(ri));
     const Scalar I = M_PI / 4 * (powi<4>(ro) - powi<4>(ri));
+    // Scalar J = 0.0;
     const Scalar J = 2 * I;
 
     /*Normal force (F1)
@@ -365,34 +342,28 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
 // return R_int_l;
 //}
 //
-inline void zero_internal_and_set_static_forces(const Index N,
-                                                const Vec3 *__restrict__ R_static_trans, const Vec3 *__restrict__ R_static_rot,
-                                                Vec3 *__restrict__ R_int_trans, Vec3 *__restrict__ R_int_rot,
-                                                Vec3 *__restrict__ R_ext_trans, Vec3 *__restrict__ R_ext_rot)
-{
+inline void zero_internal_and_set_static_forces(const Index N, const vector<Vec3> &R_static_trans,
+                                                const vector<Vec3> &R_static_rot, vector<Vec3> &R_int_trans,
+                                                vector<Vec3> &R_int_rot, vector<Vec3> &R_ext_trans,
+                                                vector<Vec3> &R_ext_rot) {
 #pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         R_int_trans[i] = {0, 0, 0};
     }
 #pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         R_int_rot[i] = {0, 0, 0};
     }
 #pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         R_ext_trans[i] = R_static_trans[i];
     }
 #pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         R_ext_rot[i] = R_static_rot[i];
     }
 }
-inline void calc_inner_forces(const Config &config, const Geometry &geometry, BeamSystem &beam_system)
-{
+inline void calc_inner_forces(const Config &config, const Geometry &geometry, BeamSystem &beam) {
 
     const Index N = geometry.get_N();
     const Index Ne = N - 1;
@@ -404,23 +375,16 @@ inline void calc_inner_forces(const Config &config, const Geometry &geometry, Be
 
 #pragma omp parallel for
     /*even elements*/
-    for (Index ie = 0; ie < Ne; ie += 2)
-    {
+    for (Index ie = 0; ie < Ne; ie += 2) {
 
-        calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-                                  beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
-                                  geometry.ri_e(ie), geometry.ro_e(ie), E, G, beta_rayleigh,
-                                  beam_system.v_trans.data(), beam_system.v_rot.data());
+        calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, beam.R_int_trans, beam.R_int_rot, geometry.ri_e(ie),
+                                  geometry.ro_e(ie), E, G, beta_rayleigh, beam.v_trans, beam.v_rot);
     }
 #pragma omp parallel for
     /*Odd elements*/
-    for (Index ie = 1; ie < Ne; ie += 2)
-    {
-
-        calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-                                  beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
-                                  geometry.ri_e(ie), geometry.ro_e(ie), E, G, beta_rayleigh,
-                                  beam_system.v_trans.data(), beam_system.v_rot.data());
+    for (Index ie = 1; ie < Ne; ie += 2) {
+        calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, beam.R_int_trans, beam.R_int_rot, geometry.ri_e(ie),
+                                  geometry.ro_e(ie), E, G, beta_rayleigh, beam.v_trans, beam.v_rot);
     }
 
     /*------------------------------------------  # - R: [0,0,0, 0, 600000, 0]
@@ -456,8 +420,8 @@ inline void calc_inner_forces(const Config &config, const Geometry &geometry, Be
 
     //         for (Index ie = a; ie < b; ie++)
     //         {
-    //             calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-    //                                       beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+    //             calc_element_inner_forces(ie, X.data(), beam.d_trans.data(), beam.d_rot.data(),
+    //                                       beam.R_int_trans.data(), beam.R_int_rot.data(),
     //                                       geometry.ri_e(ie), geometry.ro_e(ie), E, G);
     //         }
     //     }
@@ -474,8 +438,8 @@ inline void calc_inner_forces(const Config &config, const Geometry &geometry, Be
 
     //         for (Index ie = a; ie < b; ie++)
     //         {
-    //             calc_element_inner_forces(ie, X.data(), beam_system.d_trans.data(), beam_system.d_rot.data(),
-    //                                       beam_system.R_int_trans.data(), beam_system.R_int_rot.data(),
+    //             calc_element_inner_forces(ie, X.data(), beam.d_trans.data(), beam.d_rot.data(),
+    //                                       beam.R_int_trans.data(), beam.R_int_rot.data(),
     //                                       geometry.ri_e(ie), geometry.ro_e(ie), E, G);
     //         }
     //     }
@@ -484,32 +448,26 @@ inline void calc_inner_forces(const Config &config, const Geometry &geometry, Be
 inline void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
                                         const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
                                         const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
-                                        Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot)
-{
+                                        Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot) {
 #pragma omp parallel
     {
 #pragma omp for nowait
-        for (Index i = 0; i < N; i++)
-        {
+        for (Index i = 0; i < N; i++) {
             v_trans[i] += 0.5 * dt * (R_ext_trans[i] - R_int_trans[i]) / M[i];
 
-            DEBUG_ONLY(
-                if (i == 1) cout << "v_trans:\n"
-                                 << v_trans[i] << endl;);
+            DEBUG_ONLY(if (i == 1) cout << "v_trans:\n" << v_trans[i] << endl;);
         }
 #pragma omp for
-        for (Index i = 0; i < N; i++)
-        {
+        for (Index i = 0; i < N; i++) {
             /*omega_u_dot = J_u^-1 * (R_rot_u - S(omega_u)*J_u*omega_u)*/
             const Vec3 R_rot_u = R_ext_rot[i] - R_int_rot[i];
 
-            DEBUG_ONLY(if (i == 1) cout
-                       << "R_ext_rot\n"
-                       << R_ext_rot[i] << endl
-                       << "R_int_rot\n"
-                       << R_int_rot[i] << endl
-                       << "R_rot\n"
-                       << R_rot_u << endl);
+            DEBUG_ONLY(if (i == 1) cout << "R_ext_rot\n"
+                                        << R_ext_rot[i] << endl
+                                        << "R_int_rot\n"
+                                        << R_int_rot[i] << endl
+                                        << "R_rot\n"
+                                        << R_rot_u << endl);
             Vec3 &omega_u = v_rot[i];
 
             Mat3 JJu = J_u[i].asDiagonal();
@@ -528,14 +486,13 @@ inline void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__rest
 
             const Vec3 omega_u_dot = (R_rot_u - rot_term_orig).array() / J_u[i].array();
 
-            cout << "omega_u_dot\n"
-                 << omega_u_dot << endl;
-            cout << "omega_u_dot_new\n"
-                 << omega_u_dot_new << endl;
+            cout << "omega_u_dot\n" << omega_u_dot << endl;
+            cout << "omega_u_dot_new\n" << omega_u_dot_new << endl;
             // cout << "diff: \n"
             //      << omega_u_dot - omega_u_dot_new << endl;
 
-            // const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() / J_u[i].array();
+            // const Vec3 omega_u_dot = (R_rot_u - omega_u.cross(Vec3{J_u[i].array() * omega_u.array()})).array() /
+            // J_u[i].array();
             //  Scalar tol = 0.00001;
             //  if (i != 0 && abs(omega_u[0]) > tol)
             //  {
@@ -544,113 +501,94 @@ inline void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__rest
             //      assert(false);
             //  }
             omega_u += 0.5 * dt * omega_u_dot;
-            DEBUG_ONLY(
-                if (i == 1) cout << "omega_u:\n"
-                                 << v_rot[i] << endl;);
+            DEBUG_ONLY(if (i == 1) cout << "omega_u:\n" << v_rot[i] << endl;);
             // if (n_glob == 10000 && i > 10)
             //     omega_u[0] = 0.1;
         }
     }
 }
 
-inline void displacement_update(Scalar dt, Index N, Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot, Vec3 *__restrict__ d_trans,
-                                Quaternion *__restrict__ d_rot)
-{
-#pragma omp parallel
-    {
-#pragma omp for nowait
-        for (Index i = 0; i < N; i++)
-        {
-            d_trans[i] += dt * v_trans[i];
-            DEBUG_ONLY(
-                if (i == 1) cout << "d_trans:\n"
-                                 << d_trans[i] << endl;);
+inline void displacement_update(Scalar dt, Index N, vector<Vec3> &v_trans, vector<Vec3> &v_rot, vector<Vec3> &d_trans,
+                                vector<Quaternion> &d_rot) {
+#pragma omp parallel for
+
+    for (Index i = 0; i < N; i++) {
+        d_trans[i] += dt * v_trans[i];
+        DEBUG_ONLY(if (i == 1) cout << "d_trans:\n" << d_trans[i] << endl;);
+    }
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++) {
+        // Mat3 U = d_rot[i].to_matrix();
+        // U = U * (Mat3::Identity() - 0.5 * dt * skew(v_rot[i])).inverse() *
+        //     (Mat3::Identity() + 0.5 * dt * skew(v_rot[i]));
+        // assert(U.allFinite());
+        // assert(is_orthogonal(U));
+        // d_rot[i].from_matrix(U);
+        // assert(is_close(d_rot[i].norm(), 1.0));
+
+        Quaternion &q = d_rot[i];
+        const Vec3 &omega_u = v_rot[i];
+
+        const Vec3 omega = q.rotate_vector(
+            omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
+
+        // const Vec3 omega = q.rotate_vector_reversed(omega_u); // perhaps possible to simplify this and not having
+        // to first convert omega to the global frame
+        if (i == 1) {
+            cout << "i " << i << endl;
+            cout << "omega " << omega << endl;
+            cout << "omega mag " << omega.norm() << endl;
         }
-#pragma omp for
-        for (Index i = 0; i < N; i++)
-        {
-            // Mat3 U = d_rot[i].to_matrix();
-            // U = U * (Mat3::Identity() - 0.5 * dt * skew(v_rot[i])).inverse() *
-            //     (Mat3::Identity() + 0.5 * dt * skew(v_rot[i]));
-            // assert(U.allFinite());
-            // assert(is_orthogonal(U));
-            // d_rot[i].from_matrix(U);
-            // assert(is_close(d_rot[i].norm(), 1.0));
-
-            Quaternion &q = d_rot[i];
-            const Vec3 &omega_u = v_rot[i];
-
-            const Vec3 omega = q.rotate_vector(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
-
-            // const Vec3 omega = q.rotate_vector_reversed(omega_u); // perhaps possible to simplify this and not having to first convert omega to the global frame
-            if (i == 1)
-            {
-                cout << "i " << i << endl;
-                cout << "omega " << omega << endl;
-                cout << "omega mag " << omega.norm() << endl;
-            }
-            // assert(is_close(omega_u.y(), 0, 1e-4) && is_close(omega_u.z(), 0, 1e-4));
-            // q.compound_rotate(dt * omega);
-            Scalar norm = q.norm();
-            assert(is_close(norm, 1.0));
-        }
+        // assert(is_close(omega_u.y(), 0, 1e-4) && is_close(omega_u.z(), 0, 1e-4));
+        // q.compound_rotate(dt * omega);
+        Scalar norm = q.norm();
+        assert(is_close(norm, 1.0));
     }
 }
 
-inline void calc_delta_d(Scalar dt, Index N, Vec3 *__restrict__ delta_d_trans, Vec3 *__restrict__ delta_d_rot,
-                         const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot)
-{
+inline void calc_delta_d(Scalar dt, Index N, vector<Vec3> &delta_d_trans, vector<Vec3> &delta_d_rot,
+                         const vector<Vec3> &v_trans, const vector<Vec3> &v_rot) {
 #pragma omp parallel
     {
 #pragma omp for nowait
-        for (Index i = 0; i < N; i++)
-        {
+        for (Index i = 0; i < N; i++) {
             delta_d_trans[i] = dt * v_trans[i];
         }
 #pragma omp for
-        for (Index i = 0; i < N; i++)
-        {
+        for (Index i = 0; i < N; i++) {
             delta_d_rot[i] = dt * v_rot[i];
         }
     }
 }
-inline void work_update_partial(Index N, const Vec3 *__restrict__ delta_d_trans, const Vec3 *__restrict__ delta_d_rot,
-                                const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
-                                const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
-                                Scalar &W_ext, Scalar &W_int)
-{
+inline void work_update_partial(Index N, const vector<Vec3> &delta_d_trans, const vector<Vec3> &delta_d_rot,
+                                const vector<Vec3> &R_int_trans, const vector<Vec3> &R_int_rot,
+                                const vector<Vec3> &R_ext_trans, const vector<Vec3> &R_ext_rot, Scalar &W_ext,
+                                Scalar &W_int) {
 #pragma omp parallel for reduction(+ : W_int) reduction(+ : W_ext)
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         /*The rotational dofs should have been rotated to the body frame allready*/
         W_int += 0.5 * (delta_d_trans[i].dot(R_int_trans[i]) + delta_d_rot[i].dot(R_int_rot[i]));
         W_ext += 0.5 * (delta_d_trans[i].dot(R_ext_trans[i]) + delta_d_rot[i].dot(R_ext_rot[i]));
     }
 }
 
-inline void kinetic_energy_update(Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
-                                  const Vec3 *__restrict__ v_trans, const Vec3 *__restrict__ v_rot, Scalar &KE)
-{
+inline void kinetic_energy_update(Index N, const vector<Scalar> &M, const vector<Vec3> &J_u,
+                                  const vector<Vec3> &v_trans, const vector<Vec3> &v_rot, Scalar &KE) {
     KE = 0;
 #pragma omp parallel for reduction(+ : KE)
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         const Vec3 &vt = v_trans[i];
         const Vec3 &omega_u = v_rot[i];
         KE += 0.5 * M[i] * vt.squaredNorm() + 0.5 * omega_u.dot(Vec3{J_u[i].array() * omega_u.array()});
     }
 }
 
-inline void rotate_moment_to_body_frame(Index N, const Quaternion *__restrict__ d_rot,
-                                        Vec3 *__restrict__ R_int_rot, Vec3 *__restrict__ R_ext_rot)
-{
+inline void rotate_moment_to_body_frame(Index N, const vector<Quaternion> &d_rot, vector<Vec3> &R_int_rot,
+                                        vector<Vec3> &R_ext_rot) {
 #pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
-        if (i == 1)
-        {
-            cout << "R_ext_rot before\n"
-                 << R_ext_rot[i] << endl;
+    for (Index i = 0; i < N; i++) {
+        if (i == 1) {
+            cout << "R_ext_rot before\n" << R_ext_rot[i] << endl;
         }
         //     Mat3 U = d_rot[i].to_matrix();
         //     R_int[i].rot = U.transpose() * R_int[i].rot;
@@ -660,22 +598,18 @@ inline void rotate_moment_to_body_frame(Index N, const Quaternion *__restrict__ 
         R_int_rot[i] = q.rotate_vector_reversed(R_int_rot[i]);
         R_ext_rot[i] = q.rotate_vector_reversed(R_ext_rot[i]);
 
-        if (i == 1)
-        {
-            cout << "R_ext_rot after\n"
-                 << R_ext_rot[i] << endl;
+        if (i == 1) {
+            cout << "R_ext_rot after\n" << R_ext_rot[i] << endl;
         }
     }
 }
 
-inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const Scalar *__restrict__ M,
-                                                   const Vec3 *__restrict__ v_trans, Vec3 *__restrict__ R_int_trans,
-                                                   const Vec3 *__restrict__ J_u, const Quaternion *__restrict__ d_rot,
-                                                   const Vec3 *__restrict__ v_rot, Vec3 *__restrict__ R_int_rot)
-{
+inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const vector<Scalar> &M,
+                                                   const vector<Vec3> &v_trans, vector<Vec3> &R_int_trans,
+                                                   const vector<Vec3> &J_u, const vector<Quaternion> &d_rot,
+                                                   const vector<Vec3> &v_rot, vector<Vec3> &R_int_rot) {
 #pragma omp parallel for
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         R_int_trans[i] += alpha * M[i] * v_trans[i];
     }
     // Test with rotational dofs also?
@@ -698,21 +632,19 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     //     }
 }
 
-inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam_system)
-{
+inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam) {
     Index N = geometry.get_N();
 
-    vector<Vec3> &d_trans = beam_system.d_trans;
-    vector<Quaternion> &d_rot = beam_system.d_rot;
-    vector<Vec3> &v_trans = beam_system.v_trans;
-    vector<Vec3> &v_rot = beam_system.v_rot;
-    vector<Vec3> &delta_d_trans = beam_system.delta_d_trans; // design withoug having to set these later
-    vector<Vec3> &delta_d_rot = beam_system.delta_d_rot;
+    vector<Vec3> &d_trans = beam.d_trans;
+    vector<Quaternion> &d_rot = beam.d_rot;
+    vector<Vec3> &v_trans = beam.v_trans;
+    vector<Vec3> &v_rot = beam.v_rot;
+    vector<Vec3> &delta_d_trans = beam.delta_d_trans; // design withoug having to set these later
+    vector<Vec3> &delta_d_rot = beam.delta_d_rot;
 
     assert(N == d_trans.size() && N == d_rot.size() && N == v_trans.size() && N == v_rot.size());
 
-    switch (config.bc_case)
-    {
+    switch (config.bc_case) {
     case BC_Case::NONE:
         return;
     case BC_Case::CANTILEVER:

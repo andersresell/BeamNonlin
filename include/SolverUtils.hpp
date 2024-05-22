@@ -1,4 +1,5 @@
 #pragma once
+#include "Borehole.hpp"
 #include "Containers.hpp"
 #include "Geometry.hpp"
 
@@ -16,8 +17,7 @@ extern Scalar t_glob;
 
 //     BeamSystem(const Config &config, const Geometry &geometry);
 // };
-struct BeamSystem
-{
+struct BeamSystem {
     vector<Vec3> d_trans;
     vector<Quaternion> d_rot;
     vector<Vec3> v_trans;
@@ -39,6 +39,8 @@ struct BeamSystem
     BeamSystem(const Config &config, const Geometry &geometry);
 };
 
-void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &beam_system);
+void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &beam);
+
+void write_borehole(const Config &config, const Borehole &borehole);
 
 void create_output_dir(Config &config);
