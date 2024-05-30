@@ -1,14 +1,189 @@
 
-#pragma once
-#include "../include/Solver.hpp"
 
-inline Vec12 calc_approx_rayleigh_beta_damping(
-    const Scalar beta, const Scalar ri, const Scalar ro, const Scalar l0, const Scalar youngs, const Scalar G,
-    const Mat3 &E, const Mat3 &U1, const Mat3 &U2, const Vec3 &v1, const Vec3 &v2, const Vec3 &omega1_u,
-    const Vec3 &omega2_u) { /*Basing this on the formula R_damp_l = beta * k_l * v_l,
-                           First the local velocity v_l is computed by rotating the global components,
-                           then the local damping is computed, and finally the resulting force is
-                           rotated to global components*/
+#include "../include/Numerics.hpp"
+
+static void calc_forces(const Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam);
+
+template <Index i_first>
+static void calc_inner_forces(const Config &config, const Geometry &geometry, BeamSystem &beam);
+
+static void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, const vector<Vec3> &d_trans,
+                                      const vector<Quaternion> &d_rot, vector<Vec3> &R_int_trans,
+                                      vector<Vec3> &R_int_rot, const Scalar youngs, const Scalar G, const Scalar I_2,
+                                      const Scalar I_3, const Scalar A, const Scalar J, const Scalar beta_rayleigh,
+                                      const vector<Vec3> &v_trans, const vector<Vec3> &v_rot);
+static Vec7 calc_element_forces_local(const Scalar l0, const Scalar youngs, const Scalar G, const Scalar I_2,
+                                      const Scalar I_3, const Scalar A, const Scalar J, const Scalar ul,
+                                      const Scalar theta_1l, const Scalar theta_2l, const Scalar theta_3l,
+                                      const Scalar theta_4l, const Scalar theta_5l, const Scalar theta_6l);
+static void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam);
+static void work_update_partial(Index N, const vector<Vec3> &delta_d_trans, const vector<Vec3> &delta_d_rot,
+                                const vector<Vec3> &R_int_trans, const vector<Vec3> &R_int_rot,
+                                const vector<Vec3> &R_ext_trans, const vector<Vec3> &R_ext_rot, Scalar &W_ext,
+                                Scalar &W_int);
+static void kinetic_energy_update(Index N, const vector<Scalar> &M, const vector<Vec3> &J_u,
+                                  const vector<Vec3> &v_trans, const vector<Vec3> &v_rot, Scalar &KE);
+static void zero_internal_and_set_static_forces(const Index N, const vector<Vec3> &R_static_trans,
+                                                const vector<Vec3> &R_static_rot, vector<Vec3> &R_int_trans,
+                                                vector<Vec3> &R_int_rot, vector<Vec3> &R_ext_trans,
+                                                vector<Vec3> &R_ext_rot);
+static void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const vector<Scalar> &M,
+                                                   const vector<Vec3> &v_trans, vector<Vec3> &R_int_trans,
+                                                   const vector<Vec3> &J_u, const vector<Quaternion> &d_rot,
+                                                   const vector<Vec3> &v_rot, vector<Vec3> &R_int_rot);
+static Vec12 calc_approx_rayleigh_beta_damping(const Scalar beta, const Scalar A, const Scalar I_2, const Scalar I_3,
+                                               const Scalar J, const Scalar l0, const Scalar youngs, const Scalar G,
+                                               const Mat3 &E, const Mat3 &U1, const Mat3 &U2, const Vec3 &v1,
+                                               const Vec3 &v2, const Vec3 &omega1_u, const Vec3 &omega2_u);
+
+/*--------------------------------------------------------------------
+Explicit solution by the Simo-Wong algorithm for rotations and
+non-staggered central differences for translations
+--------------------------------------------------------------------*/
+void step_explicit(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam) {
+    const Scalar dt = config.dt;
+    const Index N = geometry.get_N();
+    vector<Vec3> &d_trans = beam.d_trans;
+    vector<Quaternion> &d_rot = beam.d_rot;
+    vector<Vec3> &v_trans = beam.v_trans;
+    vector<Vec3> &v_rot = beam.v_rot;
+    vector<Vec3> &a_trans = beam.a_trans;
+    vector<Vec3> &a_rot = beam.a_rot;
+    vector<Vec3> &L_rot = beam.L_rot;
+    vector<Vec3> &m_rot = beam.m_rot;
+    vector<Vec3> &R_int_trans = beam.R_int_trans;
+    vector<Vec3> &R_int_rot = beam.R_int_rot;
+    vector<Vec3> &R_ext_trans = beam.R_ext_trans;
+    vector<Vec3> &R_ext_rot = beam.R_ext_rot;
+    const vector<Scalar> &M = beam.M;
+    const vector<Vec3> &J_u = beam.J_u;
+    const bool check_energy_balance = config.check_energy_balance;
+    Scalar &W_int = beam.W_int;
+    Scalar &W_ext = beam.W_ext;
+    Scalar &KE = beam.KE;
+    vector<Vec3> &delta_d_trans = beam.delta_d_trans; /*Only used if energy balance is checked*/
+    vector<Vec3> &delta_d_rot = beam.delta_d_rot;     /*Only used if energy balance is checked*/
+    if (check_energy_balance) {
+        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
+    } else {
+        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
+    }
+
+    for (Index i = 0; i < N; i++) {
+        const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
+        d_trans[i] += delta_d;
+        if (check_energy_balance) {
+            delta_d_trans[i] = delta_d;
+        }
+    }
+
+    // rotations: Simo and Wong algorithm
+    for (Index i = 0; i < N; i++) {
+        Quaternion &q = d_rot[i];
+        const Mat3 &J = J_u[i].asDiagonal();
+        Vec3 &omega_u = v_rot[i];
+        Vec3 &alpha_u = a_rot[i];
+        L_rot[i] =
+            q.rotate_vector(J * omega_u); // Storing angular momentum L = U*J_u*omega_u at t_n for velocity update
+        const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
+        q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
+
+        if (check_energy_balance) {
+            delta_d_rot[i] = q.rotate_vector(theta_u); // delta_d is stored in inertial frame
+        }
+    }
+
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config, geometry, beam);
+
+    if (check_energy_balance) {
+        work_update_partial(N, delta_d_trans, delta_d_rot, R_int_trans, R_int_rot, R_ext_trans, R_ext_rot, W_ext,
+                            W_int);
+    }
+
+    /*Update internal and external forces*/
+    calc_forces(config, geometry, borehole, beam);
+
+    if (check_energy_balance) {
+        work_update_partial(N, delta_d_trans, delta_d_rot, R_int_trans, R_int_rot, R_ext_trans, R_ext_rot, W_ext,
+                            W_int);
+    }
+
+    /*Update translation velocities and the translational accelerations */
+    for (Index i = 0; i < N; i++) {
+        const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
+        // v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
+        v_trans[i] += dt * 0.5 * (a_trans[i] + a_trans_new);
+        a_trans[i] = a_trans_new;
+    }
+
+    // rotations: Simo and Wong algorithm
+    for (Index i = 0; i < N; i++) {
+        const Quaternion &q = d_rot[i];
+        const Mat3 &J = J_u[i].asDiagonal();
+        const Vec3 &L_n = L_rot[i];
+        Vec3 &omega_u = v_rot[i];
+        Vec3 &alpha_u = a_rot[i];
+
+        const Mat3 U_np = q.to_matrix(); // maybe optimize later
+        Vec3 &m = m_rot[i];              // Moment at t_{n+1/2}
+        const Vec3 m_np = R_ext_rot[i] - R_int_rot[i];
+        /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
+        Vec3 m_half = 0.5 * (m + m_np);
+
+        m = m_np; // Update moment
+        // if (i == 1)
+        //     cout << "m_half\n"
+        //          << m_half << endl;
+
+        const Vec3 omega_u_old = omega_u;
+        omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m_half);
+        // cout << "omega_u\n " << omega_u << endl;
+#ifndef NDEBUG
+        Vec3 L_np = U_np * J * omega_u;
+        Vec3 res = L_np - L_n - dt * m_half;
+        assert(is_close(res.norm(), 0.0));
+#endif
+        alpha_u = 2 / dt * (omega_u - omega_u_old) -
+                  alpha_u; // beta = 0.5 (not recommended by Simo, but seems to work better)
+        // alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
+    }
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config, geometry, beam);
+
+    if (check_energy_balance) {
+        kinetic_energy_update(N, M, J_u, v_trans, v_rot, KE);
+    }
+}
+
+void calc_forces(const Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam) {
+    const Index N = geometry.get_N();
+
+    zero_internal_and_set_static_forces(N, beam.R_static_trans, beam.R_static_rot, beam.R_int_trans, beam.R_int_rot,
+                                        beam.R_ext_trans, beam.R_ext_rot);
+
+    calc_inner_forces<0>(config, geometry, beam);
+    calc_inner_forces<1>(config, geometry, beam);
+
+    if (config.contact_enabled) {
+        calc_hole_contact_forces(config, N, borehole.get_N_hole_elements(), borehole.get_x(), beam.hole_index,
+                                 borehole.get_r_hole_element(), geometry.get_ro(), geometry.get_X(), beam.d_trans,
+                                 beam.d_rot, beam.v_trans, beam.v_rot, beam.R_ext_trans, beam.R_ext_rot);
+    }
+
+    if (config.rayleigh_damping_enabled) {
+        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, beam.M, beam.v_trans, beam.R_int_trans,
+                                               beam.J_u, beam.d_rot, beam.v_rot, beam.R_int_rot);
+    }
+}
+
+static Vec12 calc_approx_rayleigh_beta_damping(
+    const Scalar beta, const Scalar A, const Scalar I_2, const Scalar I_3, const Scalar J, const Scalar l0,
+    const Scalar youngs, const Scalar G, const Mat3 &E, const Mat3 &U1, const Mat3 &U2, const Vec3 &v1, const Vec3 &v2,
+    const Vec3 &omega1_u, const Vec3 &omega2_u) { /*Basing this on the formula R_damp_l = beta * k_l * v_l,
+                                                 First the local velocity v_l is computed by rotating the global
+                                                 components, then the local damping is computed, and finally the
+                                                 resulting force is rotated to global components*/
 
     const Vec3 v1_l = E.transpose() * v1;
     const Vec3 v2_l = E.transpose() * v2;
@@ -16,15 +191,11 @@ inline Vec12 calc_approx_rayleigh_beta_damping(
     const Vec3 omega1_l = E.transpose() * U1 * omega1_u;
     const Vec3 omega2_l = E.transpose() * U2 * omega2_u;
 
-    const Scalar A = M_PI * (ro * ro - ri * ri);
-    const Scalar I = M_PI / 4 * (ro * ro * ro * ro - ri * ri * ri * ri);
-    const Scalar J = 2 * I;
-
-    const Mat4 k_EB = Mat4{{12, 6 * l0, -12, 6 * l0},
-                           {6 * l0, 4 * l0 * l0, -6 * l0, 2 * l0 * l0},
-                           {-12, -6 * l0, 12, -6 * l0},
-                           {6 * l0, 2 * l0 * l0, -6 * l0, 4 * l0 * l0}} *
-                      youngs * I / (l0 * l0 * l0);
+    Mat4 k_EB = Mat4{{12, 6 * l0, -12, 6 * l0},
+                     {6 * l0, 4 * l0 * l0, -6 * l0, 2 * l0 * l0},
+                     {-12, -6 * l0, 12, -6 * l0},
+                     {6 * l0, 2 * l0 * l0, -6 * l0, 4 * l0 * l0}} *
+                youngs * I_2 / (l0 * l0 * l0);
 
     const Scalar K = J; // cicular cross-section
     const Mat2 k_tor = Mat2{{1, -1}, {-1, 1}} * G * K / l0;
@@ -38,6 +209,7 @@ inline Vec12 calc_approx_rayleigh_beta_damping(
     const Vec2 f_x = beta * k_x * v_x;
     const Vec2 f_tor = beta * k_tor * v_tor;
     const Vec4 f_y = beta * k_EB * v_y;
+    k_EB *= (I_3 / I_2);
     const Vec4 f_z = beta * k_EB * v_z;
 
     const Vec3 f1_l = {f_x[0], f_y[0], f_z[0]};
@@ -49,11 +221,10 @@ inline Vec12 calc_approx_rayleigh_beta_damping(
     R_damp << E * f1_l, E * m1_l, E * f2_l, E * m2_l;
     return R_damp;
 }
-
-inline void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, const vector<Vec3> &d_trans,
+static void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, const vector<Vec3> &d_trans,
                                       const vector<Quaternion> &d_rot, vector<Vec3> &R_int_trans,
-                                      vector<Vec3> &R_int_rot, const Scalar ri_e, const Scalar ro_e,
-                                      const Scalar youngs, const Scalar G, const Scalar beta_rayleigh,
+                                      vector<Vec3> &R_int_rot, const Scalar youngs, const Scalar G, const Scalar I_2,
+                                      const Scalar I_3, const Scalar A, const Scalar J, const Scalar beta_rayleigh,
                                       const vector<Vec3> &v_trans, const vector<Vec3> &v_rot) {
 
     // assert(i&e < X.size() - 1);
@@ -172,11 +343,11 @@ inline void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, con
 
     F_transpose.col(f7) << -e1, Vec3::Zero(), e1, Vec3::Zero(); //(17.19)
 
-    const Mat3 A = 1.0 / ln * (Mat3::Identity() - e1 * e1.transpose());
-    assert(is_close((A - A.transpose()).norm(), 0.0));
+    const Mat3 A_ = 1.0 / ln * (Mat3::Identity() - e1 * e1.transpose());
+    assert(is_close((A_ - A_.transpose()).norm(), 0.0));
 
-    Mat3 L1r2 = 0.5 * r2.dot(e1) * A + 0.5 * A * r2 * (e1 + r1).transpose();
-    Mat3 L1r3 = 0.5 * r3.dot(e1) * A + 0.5 * A * r3 * (e1 + r1).transpose();
+    Mat3 L1r2 = 0.5 * r2.dot(e1) * A_ + 0.5 * A_ * r2 * (e1 + r1).transpose();
+    Mat3 L1r3 = 0.5 * r3.dot(e1) * A_ + 0.5 * A_ * r3 * (e1 + r1).transpose();
     Mat3 L2r2 = 0.5 * skew(r2) - 0.25 * r2.transpose() * e1 * skew(r1) - 0.25 * skew(r2) * e1 * (e1 + r1).transpose();
     Mat3 L2r3 = 0.5 * skew(r3) - 0.25 * r3.transpose() * e1 * skew(r1) - 0.25 * skew(r3) * e1 * (e1 + r1).transpose();
 
@@ -205,7 +376,7 @@ inline void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, con
     //      << F.transpose() << endl;
 
     /*Calculate local internal forces based on linear 3D beam theory*/
-    const Vec7 R_int_e_l = calc_element_forces_local(ri_e, ro_e, l0, youngs, G, ul, theta_l1, theta_l2, theta_l3,
+    const Vec7 R_int_e_l = calc_element_forces_local(l0, youngs, G, I_2, I_3, A, J, ul, theta_l1, theta_l2, theta_l3,
                                                      theta_l4, theta_l5, theta_l6);
 
     DEBUG_ONLY(cout << "R_int_e_l:\n" << R_int_e_l << endl;);
@@ -224,18 +395,21 @@ inline void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, con
     assert(R_int_e.allFinite());
     DEBUG_ONLY(cout << "R_int_e:\n" << R_int_e << endl;);
 
-    const Vec12 R_damp = calc_approx_rayleigh_beta_damping(beta_rayleigh, ri_e, ro_e, l0, youngs, G, E, U, T,
-                                                           v_trans[ie], v_trans[ie + 1], v_rot[ie], v_rot[ie + 1]);
     DEBUG_ONLY(cout << "R_damp\n" << R_damp << endl;);
     R_int_trans[ie] += R_int_e.segment(0, 3);
     R_int_rot[ie] += R_int_e.segment(3, 3);
     R_int_trans[ie + 1] += R_int_e.segment(6, 3);
     R_int_rot[ie + 1] += R_int_e.segment(9, 3);
-
-    R_int_trans[ie] += R_damp.segment(0, 3);
-    R_int_rot[ie] += R_damp.segment(3, 3);
-    R_int_trans[ie + 1] += R_damp.segment(6, 3);
-    R_int_rot[ie + 1] += R_damp.segment(9, 3);
+    if (beta_rayleigh > 0) {
+        const Vec12 R_damp = calc_approx_rayleigh_beta_damping(beta_rayleigh, A, I_2, I_3, J, l0, youngs, G, E, U, T,
+                                                               v_trans[ie], v_trans[ie + 1], v_rot[ie], v_rot[ie + 1]);
+        R_int_trans[ie] += R_damp.segment(0, 3);
+        R_int_rot[ie] += R_damp.segment(3, 3);
+        R_int_trans[ie + 1] += R_damp.segment(6, 3);
+        R_int_rot[ie + 1] += R_damp.segment(9, 3);
+    } else {
+        assert(beta_rayleigh == 0.0);
+    }
 
     // DEBUG_ONLY(cout << "R_battini " << R_int_battini << endl;);
     // Vec12 diff = R_int_e - R_int_battini;
@@ -244,19 +418,16 @@ inline void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, con
     // assert(diff.norm() < 1e-1);
 }
 
-inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul, Scalar theta_1l,
-                                      Scalar theta_2l, Scalar theta_3l, Scalar theta_4l, Scalar theta_5l,
-                                      Scalar theta_6l) {
-    const Scalar A = M_PI * (powi<2>(ro) - powi<2>(ri));
-    const Scalar I = M_PI / 4 * (powi<4>(ro) - powi<4>(ri));
-    // Scalar J = 0.0;
-    const Scalar J = 2 * I;
+static Vec7 calc_element_forces_local(const Scalar l0, const Scalar youngs, const Scalar G, const Scalar I_2,
+                                      const Scalar I_3, const Scalar A, const Scalar J, const Scalar ul,
+                                      const Scalar theta_1l, const Scalar theta_2l, const Scalar theta_3l,
+                                      const Scalar theta_4l, const Scalar theta_5l, const Scalar theta_6l) {
 
     /*Normal force (F1)
      [[F1], = A*E/l0[[ 1 -1],*[[0],
       [F4]]          [-1  1]]  [ul]]
     */
-    const Scalar F1 = A * E * (-ul) / l0;
+    const Scalar F1 = A * youngs * (-ul) / l0;
     const Scalar F4 = -F1;
 
     /*--------------------------------------------------------------------
@@ -268,8 +439,7 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
     Governing equation is then:
     I_p * rho * phitors_tt = G * K * phitors_xx
     --------------------------------------------------------------------*/
-    const Scalar K = J; // cicular cross-section
-    Scalar M1 = G * K * (theta_1l - theta_4l) / l0;
+    Scalar M1 = G * J * (theta_1l - theta_4l) / l0;
     Scalar M4 = -M1;
 
     // M1*=-1;
@@ -279,11 +449,11 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
     k = EI/L [[4 2],
               [2 4]]
     */
-    const Scalar M2 = E * I / l0 * (4 * theta_2l + 2 * theta_5l);
-    const Scalar M5 = E * I / l0 * (2 * theta_2l + 4 * theta_5l);
+    const Scalar M2 = youngs * I_2 / l0 * (4 * theta_2l + 2 * theta_5l);
+    const Scalar M5 = youngs * I_2 / l0 * (2 * theta_2l + 4 * theta_5l);
 
-    const Scalar M3 = E * I / l0 * (4 * theta_3l + 2 * theta_6l);
-    const Scalar M6 = E * I / l0 * (2 * theta_3l + 4 * theta_6l);
+    const Scalar M3 = youngs * I_3 / l0 * (4 * theta_3l + 2 * theta_6l);
+    const Scalar M6 = youngs * I_3 / l0 * (2 * theta_3l + 4 * theta_6l);
 
     // Vec12 R_int_l = {F1, 0, 0, M1, M2, M3, F4, 0, 0, M4, M5, M6};
     const Vec7 R_int_e_l = {M1, M2, M3, F4, M4, M5, M6};
@@ -342,7 +512,7 @@ inline Vec7 calc_element_forces_local(Scalar ri, Scalar ro, Scalar l0, Scalar E,
 // return R_int_l;
 //}
 //
-inline void zero_internal_and_set_static_forces(const Index N, const vector<Vec3> &R_static_trans,
+static void zero_internal_and_set_static_forces(const Index N, const vector<Vec3> &R_static_trans,
                                                 const vector<Vec3> &R_static_rot, vector<Vec3> &R_int_trans,
                                                 vector<Vec3> &R_int_rot, vector<Vec3> &R_ext_trans,
                                                 vector<Vec3> &R_ext_rot) {
@@ -363,8 +533,10 @@ inline void zero_internal_and_set_static_forces(const Index N, const vector<Vec3
         R_ext_rot[i] = R_static_rot[i];
     }
 }
-inline void calc_inner_forces(const Config &config, const Geometry &geometry, BeamSystem &beam) {
 
+template <Index i_first>
+static void calc_inner_forces(const Config &config, const Geometry &geometry, BeamSystem &beam) {
+    assert(i_first == 0 || i_first == 1);
     const Index N = geometry.get_N();
     const Index Ne = N - 1;
 
@@ -373,22 +545,17 @@ inline void calc_inner_forces(const Config &config, const Geometry &geometry, Be
     const Scalar G = config.get_G();
     const Scalar beta_rayleigh = config.beta_rayleigh;
 
-#pragma omp parallel for
-    /*even elements*/
-    for (Index ie = 0; ie < Ne; ie += 2) {
+    Scalar A, I_2, I_3, J;
 
-        calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, beam.R_int_trans, beam.R_int_rot, geometry.ri_e(ie),
-                                  geometry.ro_e(ie), E, G, beta_rayleigh, beam.v_trans, beam.v_rot);
-    }
 #pragma omp parallel for
-    /*Odd elements*/
-    for (Index ie = 1; ie < Ne; ie += 2) {
-        calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, beam.R_int_trans, beam.R_int_rot, geometry.ri_e(ie),
-                                  geometry.ro_e(ie), E, G, beta_rayleigh, beam.v_trans, beam.v_rot);
+    for (Index ie = i_first; ie < Ne; ie += 2) {
+        geometry.get_cross_section_properties(ie, A, I_2, I_3, J);
+        calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, beam.R_int_trans, beam.R_int_rot, E, G, I_2, I_3, A,
+                                  J, beta_rayleigh, beam.v_trans, beam.v_rot);
     }
 
     /*------------------------------------------  # - R: [0,0,0, 0, 600000, 0]
-  #   rel_loc: 1--------------------------
+    #   rel_loc: 1--------------------------
     To avoid race conditions the following pattern is used to compute and
     assemble the internal forces:
 
@@ -445,7 +612,7 @@ inline void calc_inner_forces(const Config &config, const Geometry &geometry, Be
     //     }
 }
 
-inline void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
+static void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__restrict__ M, const Vec3 *__restrict__ J_u,
                                         const Vec3 *__restrict__ R_int_trans, const Vec3 *__restrict__ R_int_rot,
                                         const Vec3 *__restrict__ R_ext_trans, const Vec3 *__restrict__ R_ext_rot,
                                         Vec3 *__restrict__ v_trans, Vec3 *__restrict__ v_rot) {
@@ -508,7 +675,7 @@ inline void velocity_update_partial_OLD(Scalar dt, Index N, const Scalar *__rest
     }
 }
 
-inline void displacement_update(Scalar dt, Index N, vector<Vec3> &v_trans, vector<Vec3> &v_rot, vector<Vec3> &d_trans,
+static void displacement_update(Scalar dt, Index N, vector<Vec3> &v_trans, vector<Vec3> &v_rot, vector<Vec3> &d_trans,
                                 vector<Quaternion> &d_rot) {
 #pragma omp parallel for
 
@@ -540,13 +707,11 @@ inline void displacement_update(Scalar dt, Index N, vector<Vec3> &v_trans, vecto
             cout << "omega mag " << omega.norm() << endl;
         }
         // assert(is_close(omega_u.y(), 0, 1e-4) && is_close(omega_u.z(), 0, 1e-4));
-        // q.compound_rotate(dt * omega);
-        Scalar norm = q.norm();
-        assert(is_close(norm, 1.0));
+        assert(is_close(q.norm(), 1.0));
     }
 }
 
-inline void calc_delta_d(Scalar dt, Index N, vector<Vec3> &delta_d_trans, vector<Vec3> &delta_d_rot,
+static void calc_delta_d(Scalar dt, Index N, vector<Vec3> &delta_d_trans, vector<Vec3> &delta_d_rot,
                          const vector<Vec3> &v_trans, const vector<Vec3> &v_rot) {
 #pragma omp parallel
     {
@@ -560,7 +725,7 @@ inline void calc_delta_d(Scalar dt, Index N, vector<Vec3> &delta_d_trans, vector
         }
     }
 }
-inline void work_update_partial(Index N, const vector<Vec3> &delta_d_trans, const vector<Vec3> &delta_d_rot,
+static void work_update_partial(Index N, const vector<Vec3> &delta_d_trans, const vector<Vec3> &delta_d_rot,
                                 const vector<Vec3> &R_int_trans, const vector<Vec3> &R_int_rot,
                                 const vector<Vec3> &R_ext_trans, const vector<Vec3> &R_ext_rot, Scalar &W_ext,
                                 Scalar &W_int) {
@@ -572,7 +737,7 @@ inline void work_update_partial(Index N, const vector<Vec3> &delta_d_trans, cons
     }
 }
 
-inline void kinetic_energy_update(Index N, const vector<Scalar> &M, const vector<Vec3> &J_u,
+static void kinetic_energy_update(Index N, const vector<Scalar> &M, const vector<Vec3> &J_u,
                                   const vector<Vec3> &v_trans, const vector<Vec3> &v_rot, Scalar &KE) {
     KE = 0;
 #pragma omp parallel for reduction(+ : KE)
@@ -583,7 +748,7 @@ inline void kinetic_energy_update(Index N, const vector<Scalar> &M, const vector
     }
 }
 
-inline void rotate_moment_to_body_frame(Index N, const vector<Quaternion> &d_rot, vector<Vec3> &R_int_rot,
+static void rotate_moment_to_body_frame(Index N, const vector<Quaternion> &d_rot, vector<Vec3> &R_int_rot,
                                         vector<Vec3> &R_ext_rot) {
 #pragma omp parallel for
     for (Index i = 0; i < N; i++) {
@@ -604,7 +769,7 @@ inline void rotate_moment_to_body_frame(Index N, const vector<Quaternion> &d_rot
     }
 }
 
-inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const vector<Scalar> &M,
+static void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const vector<Scalar> &M,
                                                    const vector<Vec3> &v_trans, vector<Vec3> &R_int_trans,
                                                    const vector<Vec3> &J_u, const vector<Quaternion> &d_rot,
                                                    const vector<Vec3> &v_rot, vector<Vec3> &R_int_rot) {
@@ -632,7 +797,7 @@ inline void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
     //     }
 }
 
-inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam) {
+static void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam) {
     Index N = geometry.get_N();
 
     vector<Vec3> &d_trans = beam.d_trans;

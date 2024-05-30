@@ -161,8 +161,6 @@ void write_borehole(const Config &config, const Borehole &borehole) {
     }
 
     const Index N_hole = borehole.get_N_hole_nodes();
-    const vector<Vec3> &x = borehole.get_x();
-    const vector<Scalar> &r_hole = borehole.get_r_hole_element();
 
     /*Create "header"*/
     ost << "#N_hole \n" << N_hole << "\n";

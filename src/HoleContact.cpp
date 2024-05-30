@@ -10,8 +10,6 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
 
     update_hole_contact_indices<false>(N, N_hole, x_hole, r_hole, hole_index, X, d_trans);
 
-    const Index Ne_hole = N_hole - 1;
-
     const Scalar mu_s = config.mu_static;
     const Scalar mu_k = config.mu_kinetic;
     const Scalar d_c = config.coloumb_friction_decay;
@@ -21,7 +19,7 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
 #pragma omp parallel for
     for (Index i = 0; i < N; i++) {
         const Index hi = hole_index[i];
-        assert(hi < Ne_hole);
+        assert(hi < N_hole - 1);
         const Vec3 x = X[i] + d_trans[i];
         assert(node_within_hole_segment(hi, N_hole, x_hole, r_hole[hi], x) == 0);
         const Vec3 &x_hole_A = x_hole[hi];
@@ -34,56 +32,21 @@ void calc_hole_contact_forces(const Config &config, const Index N, const Index N
             continue;
         }
 
-        // cout << "r string " << r_outer_string[i] << "\n";
-        // cout << "r_hole " << r_hole[hi] << "\n";
-
         const Scalar dX_segment = dX_element_avg(i, X, N); /*Distance between centroids of two elements*/
         const Vec3 n = (x - x_center).normalized();
-        const Vec3 omega = d_rot[i].rotate_vector(v_rot[i]); /*angular velocity in global frame*/
-
+        const Vec3 omega = d_rot[i].rotate_vector(v_rot[i]);             /*angular velocity in global frame*/
         const Vec3 vc = v_trans[i] + omega.cross(r_outer_string[i] * n); /*Velocity at the contact point*/
-
         const Scalar vcn = vc.dot(n);
-
         const Vec3 v_slip = vc - n * vcn;
-
         const Vec3 t_slip = v_slip.normalized();
 
         const Scalar mu = mu_k + (mu_s - mu_k) * exp(-d_c * v_slip.norm()); /*Coloumb friction model*/
 
         const Scalar fn = (K_c * delta + C_c * vcn) * dX_segment; /*Normal force*/
         const Scalar ft = mu * fn;                                /*Tangenital force*/
-
         const Vec3 fc = -n * fn - t_slip * ft;
         const Vec3 mc = r_outer_string[i] * n.cross(fc); /*m = r x f*/
-
         assert(fc.allFinite() && mc.allFinite());
-
-        // cout << "n_glob " << n_glob << endl;
-        // if (i == 7 && t_glob > 2 && omega.x() > 10 && abs(v_trans[i].x()) < 0.1)
-        // {
-        // cout << "i " << i << endl;
-        // cout << "v \n"
-        //      << v_trans[i] << endl;
-        // cout << "vc \n"
-        //      << vc << endl;
-        // cout << "vcn " << vcn << endl;
-
-        // cout << "v_slip \n"
-        //      << v_slip << endl;
-        // cout << "omega \n"
-        //      << omega << endl;
-        // cout << "t_slip \n"
-        //      << t_slip << endl;
-        // cout << "fn " << fn << endl;
-        // cout << "ft " << ft << endl;
-        // cout << "n\n " << n << endl;
-        // cout << "fc \n"
-        //      << fc << endl;
-        // cout << "mc \n"
-        //      << mc << endl;
-        //     int a = 1;
-        // }
 
         R_ext_trans[i] += fc;
         R_ext_rot[i] += mc;
@@ -172,8 +135,8 @@ inline void update_hole_contact_indices(const Index N, const Index N_hole, const
                 while (search_dir != 0) {
                     assert(search_dir == 1);
                     hi++;
-                    assert(hi < Ne_hole);
-                    if (hi >= Ne_hole) {
+                    assert(hi < (int)Ne_hole);
+                    if (hi >= (int)Ne_hole) {
                         throw runtime_error("Hole index (" + to_string(hi) + ") >= num hole elements (" +
                                             to_string(Ne_hole) + ") found for node i=" + to_string(i));
                     }

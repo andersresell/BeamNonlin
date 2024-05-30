@@ -2,8 +2,7 @@
 #include "Includes.hpp"
 #include "Utils.hpp"
 
-struct Config
-{
+struct Config {
     Config();
     Index n;
     size_t n_max;
@@ -45,8 +44,7 @@ struct Config
 
     Scalar get_G() const { return E / (2 * (1 + nu)); }
 
-    size_t get_n_steps() const
-    {
+    size_t get_n_steps() const {
         assert(dt > 0.0 && t_max > 0.0);
         return min(n_max, (size_t)(t_max / dt) + 1);
     }

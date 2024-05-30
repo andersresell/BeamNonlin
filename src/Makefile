@@ -44,6 +44,7 @@ INC_DIR = $(BeamNonlinHome)/include
 SRC = BeamNonlin.cpp \
 	  Utils.cpp \
 	  Solver.cpp \
+	  Numerics.cpp \
 	  SolverUtils.cpp \
 	  Geometry.cpp \
 	  Config.cpp \

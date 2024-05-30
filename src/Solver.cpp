@@ -1,8 +1,16 @@
 #include "../include/Solver.hpp"
-#include "Solver.inl"
+#include "../include/Numerics.hpp"
 
 Index n_glob;
 Scalar t_glob;
+
+static void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans,
+                                      vector<Quaternion> &d_rot);
+static void calc_dt(Config &config, const Geometry &geometry, const Borehole &borehole);
+
+static void calc_static_loads(const Config &config, const Geometry &geometry, vector<Vec3> &R_static_trans,
+                              vector<Vec3> &R_static_rot);
+static void check_energy_balance(const Config &config, const BeamSystem &beam_sys);
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole) {
 
@@ -55,81 +63,48 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole) {
         save_csv(config, geometry, beam);
 
         // Debug stuff
-        constexpr bool set_disp = false;
-        if (set_disp && n == 0) {
-            Index N = geometry.get_N();
+        // constexpr bool set_disp = false;
+        // if (set_disp && n == 0) {
+        //     Index N = geometry.get_N();
 
-            assert(geometry.get_N() == 2);
-            // beam.u[1].trans = {0, u_new, 0};
+        //     assert(geometry.get_N() == 2);
+        //     // beam.u[1].trans = {0, u_new, 0};
 
-            Scalar theta = 1 * M_PI / 180; // 1 deg
-            Scalar c = cos(theta);
-            Scalar s = sin(theta);
+        //     Scalar theta = 1 * M_PI / 180; // 1 deg
+        //     Scalar c = cos(theta);
+        //     Scalar s = sin(theta);
 
-            // set external forces to zero
-            for (Index i = 0; i < N; i++) {
-                beam.R_ext_rot[i].setZero();
-                beam.R_ext_trans[i].setZero();
-                beam.R_static_rot[i].setZero();
-                beam.R_static_trans[i].setZero();
-            }
+        //     // set external forces to zero
+        //     for (Index i = 0; i < N; i++) {
+        //         beam.R_ext_rot[i].setZero();
+        //         beam.R_ext_trans[i].setZero();
+        //         beam.R_static_rot[i].setZero();
+        //         beam.R_static_trans[i].setZero();
+        //     }
 
-            Mat3 U = Mat3::Identity();
-            Mat3 T = U;
-            T = triad_from_euler_angles(10 * M_PI / 180, 0, 0);
-            T = triad_from_euler_angles(0, 0, 45 * M_PI / 180);
+        //     Mat3 U = Mat3::Identity();
+        //     Mat3 T = U;
+        //     T = triad_from_euler_angles(10 * M_PI / 180, 0, 0);
+        //     T = triad_from_euler_angles(0, 0, 45 * M_PI / 180);
 
-            beam.d_trans[0] = Vec3{0, 0, 0};
-            beam.d_trans[1] = Vec3{0, 0, 0};
+        //     beam.d_trans[0] = Vec3{0, 0, 0};
+        //     beam.d_trans[1] = Vec3{0, 0, 0};
 
-            // beam_sys.d_rot[0].from_matrix(U);
-            // beam_sys.d_rot[N - 1].from_matrix(T);
-            // beam_sys.v_rot[0] = Vec3::Zero();
-            // cout << "omega_mag_orig " << omega_u.norm() << endl;
-            beam.v_rot[N - 1] = {10, 100, 0};
-            // beam_sys.v_trans[N - 1] = {1000, 0, 0};
-        }
-
-        step_explicit_SW(config, geometry, borehole, beam);
-        // step_explicit_NMB(config, geometry, borehole, beam_sys);
-
-        // calculate internal loads
-        // assemble(config, geometry, beam);
-
-        // step central differences (Includes updating displacements and nodal triads/Quaternions)
-        // if (!set_disp)
-        // // {
-        // step_central_differences(config.dt, N, beam.u.data(), beam.v.data(), beam.M.data(),
-        //                          beam.J_u.data(), beam.R_int.data(), beam.R_ext.data(),
-        //                          check_energy_balance, config.W_int, config.W_ext, config.KE);
+        //     // beam_sys.d_rot[0].from_matrix(U);
+        //     // beam_sys.d_rot[N - 1].from_matrix(T);
+        //     // beam_sys.v_rot[0] = Vec3::Zero();
+        //     // cout << "omega_mag_orig " << omega_u.norm() << endl;
+        //     beam.v_rot[N - 1] = {10, 100, 0};
+        //     // beam_sys.v_trans[N - 1] = {1000, 0, 0};
         // }
-        // set_simple_bc(config.bc_case, geometry, beam);
+
+        step_explicit(config, geometry, borehole, beam);
     }
     timer.stop_counter();
     timer.print_elapsed_time();
 }
 
-void calc_forces(const Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam) {
-    const Index N = geometry.get_N();
-
-    zero_internal_and_set_static_forces(N, beam.R_static_trans, beam.R_static_rot, beam.R_int_trans, beam.R_int_rot,
-                                        beam.R_ext_trans, beam.R_ext_rot);
-
-    calc_inner_forces(config, geometry, beam);
-
-    if (config.contact_enabled) {
-        calc_hole_contact_forces(config, N, borehole.get_N_hole_elements(), borehole.get_x(), beam.hole_index,
-                                 borehole.get_r_hole_element(), geometry.get_ro(), geometry.get_X(), beam.d_trans,
-                                 beam.d_rot, beam.v_trans, beam.v_rot, beam.R_ext_trans, beam.R_ext_rot);
-    }
-
-    if (config.rayleigh_damping_enabled) {
-        add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, beam.M, beam.v_trans, beam.R_int_trans,
-                                               beam.J_u, beam.d_rot, beam.v_rot, beam.R_int_rot);
-    }
-}
-
-void calc_dt(Config &config, const Geometry &geometry, const Borehole &borehole) {
+static void calc_dt(Config &config, const Geometry &geometry, const Borehole &borehole) {
 
     const Scalar c = sqrt(config.E / config.rho); /*Speed of sound*/
     Scalar dx_min = std::numeric_limits<Scalar>::max();
@@ -138,8 +113,12 @@ void calc_dt(Config &config, const Geometry &geometry, const Borehole &borehole)
     for (Index ie = 0; ie < geometry.get_Ne(); ie++) {
 
         Scalar dx = geometry.dx_e(ie);
-        Scalar I = geometry.I_e(ie);
-        Scalar A = geometry.A_e(ie);
+
+        Scalar A{0}, I_2{0}, I_3{0}, unused{0};
+        geometry.get_cross_section_properties(ie, A, I_2, I_3,
+                                              unused); // should check if this works for rectangular cross sections
+
+        Scalar I = max(I_2, I_3);
         Scalar r_g = sqrt(I / A); /*Radius of gyration*/
 
         Scalar crit_1 = sqrt(3) * dx_min * dx_min / (12 * c * r_g);
@@ -172,255 +151,8 @@ void calc_dt(Config &config, const Geometry &geometry, const Borehole &borehole)
          << "----------------------------------------------------------\n";
 }
 
-inline Vec3 solve_Alpha(Mat3 I, Vec3 Tn, Scalar dt, Vec3 Alphan1, Vec3 Omegan1, Scalar ceps) {
-
-    Index maxi = 12;
-    Vec3 Omeganp = Omegan1 + dt / 2 * Alphan1;
-    Mat3 B = I + dt / 2 * skew(Omeganp) * I - skew(dt / 2 * I * Omeganp);
-    Vec3 Alphan = Alphan1;
-    Index i = 0;
-    Vec3 res = I * Alphan - Tn + skew(Omeganp + dt / 2 * Alphan) * I * (Omeganp + dt / 2 * Alphan);
-    while (res.array().abs().maxCoeff() > ceps) {
-        Alphan = Alphan - (B + (dt / 2) * (dt / 2) * (skew(Alphan) * I - skew(I * (Alphan)))).lu().solve(res);
-        // Alphan = Alphan - (B + (dt / 2) * (dt / 2) * (skew(Alphan) * I - skew(I * (Alphan)))).inverse() * res;
-
-        res = I * Alphan - Tn + skew(Omeganp + dt / 2 * Alphan) * I * (Omeganp + dt / 2 * Alphan);
-        i = i + 1;
-        if (i > maxi) {
-            if (res.array().abs().maxCoeff() > ceps)
-                printf("Failed to converge, residual= %f\n", res.norm());
-            break;
-        }
-    }
-    // cout << "final res = " << res.norm() << ", after " << i << " iter\n";
-    return Alphan;
-}
-
-void step_explicit_NMB(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam) {
-    const Scalar dt = config.dt;
-    const Index N = geometry.get_N();
-    vector<Vec3> &d_trans = beam.d_trans;
-    vector<Quaternion> &d_rot = beam.d_rot;
-    vector<Vec3> &v_trans = beam.v_trans;
-    vector<Vec3> &v_rot = beam.v_rot;
-    vector<Vec3> &a_trans = beam.a_trans;
-    vector<Vec3> &a_rot = beam.a_rot;
-    vector<Vec3> &L_rot = beam.L_rot;
-    vector<Vec3> &m_rot = beam.m_rot;
-    vector<Vec3> &R_int_trans = beam.R_int_trans;
-    vector<Vec3> &R_int_rot = beam.R_int_rot;
-    vector<Vec3> &R_ext_trans = beam.R_ext_trans;
-    vector<Vec3> &R_ext_rot = beam.R_ext_rot;
-    const vector<Scalar> &M = beam.M;
-    const vector<Vec3> &J_u = beam.J_u;
-    const bool check_energy_balance = config.check_energy_balance;
-    const bool rayleigh_damping_enabled = config.rayleigh_damping_enabled;
-    Scalar &W_int = beam.W_int;
-    Scalar &W_ext = beam.W_ext;
-    Scalar &KE = beam.KE;
-    vector<Vec3> &delta_d_trans = beam.delta_d_trans; /*Only used if energy balance is checked*/
-    vector<Vec3> &delta_d_rot = beam.delta_d_rot;     /*Only used if energy balance is checked*/
-    if (check_energy_balance) {
-        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
-    } else {
-        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
-    }
-
-    for (Index i = 0; i < N; i++) {
-        const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
-        d_trans[i] += delta_d;
-        if (check_energy_balance) {
-            delta_d_trans[i] = delta_d;
-        }
-    }
-
-    // rotations:
-    for (Index i = 0; i < N; i++) {
-        Quaternion &q = d_rot[i];
-        const Mat3 &J = J_u[i].asDiagonal();
-        Vec3 &omega_u = v_rot[i];
-        Vec3 &alpha_u = a_rot[i];
-        const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
-        q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
-
-        if (check_energy_balance) {
-            delta_d_rot[i] = q.rotate_vector(theta_u); // delta_d is stored in inertial frame
-        }
-    }
-
-    /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam);
-
-    if (check_energy_balance) {
-        work_update_partial(N, delta_d_trans, delta_d_rot, R_int_trans, R_int_rot, R_ext_trans, R_ext_rot, W_ext,
-                            W_int);
-    }
-
-    /*Update internal and external forces*/
-    calc_forces(config, geometry, borehole, beam);
-
-    if (check_energy_balance) {
-        work_update_partial(N, delta_d_trans, delta_d_rot, R_int_trans, R_int_rot, R_ext_trans, R_ext_rot, W_ext,
-                            W_int);
-    }
-
-    /*Update translation velocities and the translational accelerations */
-    for (Index i = 0; i < N; i++) {
-        const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
-        // v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
-        v_trans[i] += dt * 0.5 * (a_trans[i] + a_trans_new);
-        a_trans[i] = a_trans_new;
-    }
-
-    // rotations: Newmark body
-
-    for (Index i = 0; i < N; i++) {
-
-        const Quaternion &q = d_rot[i];
-        const Mat3 &J = J_u[i].asDiagonal();
-        Vec3 &omega_u = v_rot[i];
-        Vec3 &alpha_u = a_rot[i];
-        const Mat3 U_np = q.to_matrix(); // maybe optimize later
-        Vec3 m_u = U_np.transpose() * (R_ext_rot[i] - R_int_rot[i]);
-
-        // Scalar ray_tor = 1000.0 * omega_u.x() * J(0, 0);
-        // // printf("i %i, ray tor %f, mx %f, ratio %f\n", i, ray_tor, m_u.x(), ray_tor / m_u.x());
-        // m_u.x() -= ray_tor;
-        Vec3 alpha_u_old = alpha_u;
-        Vec3 omega_u_old = omega_u;
-        alpha_u = solve_Alpha(J, m_u, dt, alpha_u_old, omega_u_old, 1e-8);
-
-        omega_u = omega_u_old + dt / 2 * (alpha_u_old + alpha_u);
-    }
-
-    /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam);
-
-    if (check_energy_balance) {
-        kinetic_energy_update(N, M, J_u, v_trans, v_rot, KE);
-    }
-}
-
-void step_explicit_SW(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam) {
-    const Scalar dt = config.dt;
-    const Index N = geometry.get_N();
-    vector<Vec3> &d_trans = beam.d_trans;
-    vector<Quaternion> &d_rot = beam.d_rot;
-    vector<Vec3> &v_trans = beam.v_trans;
-    vector<Vec3> &v_rot = beam.v_rot;
-    vector<Vec3> &a_trans = beam.a_trans;
-    vector<Vec3> &a_rot = beam.a_rot;
-    vector<Vec3> &L_rot = beam.L_rot;
-    vector<Vec3> &m_rot = beam.m_rot;
-    vector<Vec3> &R_int_trans = beam.R_int_trans;
-    vector<Vec3> &R_int_rot = beam.R_int_rot;
-    vector<Vec3> &R_ext_trans = beam.R_ext_trans;
-    vector<Vec3> &R_ext_rot = beam.R_ext_rot;
-    const vector<Scalar> &M = beam.M;
-    const vector<Vec3> &J_u = beam.J_u;
-    const bool check_energy_balance = config.check_energy_balance;
-    const bool rayleigh_damping_enabled = config.rayleigh_damping_enabled;
-    Scalar &W_int = beam.W_int;
-    Scalar &W_ext = beam.W_ext;
-    Scalar &KE = beam.KE;
-    vector<Vec3> &delta_d_trans = beam.delta_d_trans; /*Only used if energy balance is checked*/
-    vector<Vec3> &delta_d_rot = beam.delta_d_rot;     /*Only used if energy balance is checked*/
-    if (check_energy_balance) {
-        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
-    } else {
-        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
-    }
-
-    for (Index i = 0; i < N; i++) {
-        const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
-        d_trans[i] += delta_d;
-        if (check_energy_balance) {
-            delta_d_trans[i] = delta_d;
-        }
-    }
-
-    // rotations: Simo and Wong algorithm
-    for (Index i = 0; i < N; i++) {
-        Quaternion &q = d_rot[i];
-        const Mat3 &J = J_u[i].asDiagonal();
-        Vec3 &omega_u = v_rot[i];
-        Vec3 &alpha_u = a_rot[i];
-        L_rot[i] =
-            q.rotate_vector(J * omega_u); // Storing angular momentum L = U*J_u*omega_u at t_n for velocity update
-        const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
-        q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
-
-        if (check_energy_balance) {
-            delta_d_rot[i] = q.rotate_vector(theta_u); // delta_d is stored in inertial frame
-        }
-    }
-
-    /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam);
-
-    if (check_energy_balance) {
-        work_update_partial(N, delta_d_trans, delta_d_rot, R_int_trans, R_int_rot, R_ext_trans, R_ext_rot, W_ext,
-                            W_int);
-    }
-
-    /*Update internal and external forces*/
-    calc_forces(config, geometry, borehole, beam);
-
-    if (check_energy_balance) {
-        work_update_partial(N, delta_d_trans, delta_d_rot, R_int_trans, R_int_rot, R_ext_trans, R_ext_rot, W_ext,
-                            W_int);
-    }
-
-    /*Update translation velocities and the translational accelerations */
-    for (Index i = 0; i < N; i++) {
-        const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
-        // v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
-        v_trans[i] += dt * 0.5 * (a_trans[i] + a_trans_new);
-        a_trans[i] = a_trans_new;
-    }
-
-    // rotations: Simo and Wong algorithm
-    for (Index i = 0; i < N; i++) {
-        const Quaternion &q = d_rot[i];
-        const Mat3 &J = J_u[i].asDiagonal();
-        const Vec3 &L_n = L_rot[i];
-        Vec3 &omega_u = v_rot[i];
-        Vec3 &alpha_u = a_rot[i];
-
-        const Mat3 U_np = q.to_matrix(); // maybe optimize later
-        Vec3 &m = m_rot[i];              // Moment at t_{n+1/2}
-        const Vec3 m_np = R_ext_rot[i] - R_int_rot[i];
-        /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
-        Vec3 m_half = 0.5 * (m + m_np);
-
-        m = m_np; // Update moment
-        // if (i == 1)
-        //     cout << "m_half\n"
-        //          << m_half << endl;
-
-        const Vec3 omega_u_old = omega_u;
-        omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m_half);
-        // cout << "omega_u\n " << omega_u << endl;
-#ifndef NDEBUG
-        Vec3 L_np = U_np * J * omega_u;
-        Vec3 res = L_np - L_n - dt * m_half;
-        assert(is_close(res.norm(), 0.0));
-#endif
-        alpha_u = 2 / dt * (omega_u - omega_u_old) -
-                  alpha_u; // beta = 0.5 (not recommended by Simo, but seems to work better)
-        // alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
-    }
-
-    /*Enforcing boundary conditions*/
-    set_simple_bc(config, geometry, beam);
-
-    if (check_energy_balance) {
-        kinetic_energy_update(N, M, J_u, v_trans, v_rot, KE);
-    }
-}
-
-void calc_static_loads(const Config &config, const Geometry &geometry, vector<Vec3> &R_static_trans,
-                       vector<Vec3> &R_static_rot) {
+static void calc_static_loads(const Config &config, const Geometry &geometry, vector<Vec3> &R_static_trans,
+                              vector<Vec3> &R_static_rot) {
     const Index N = geometry.get_N();
     const Index Ne = N - 1;
 
@@ -458,7 +190,7 @@ void calc_static_loads(const Config &config, const Geometry &geometry, vector<Ve
     }
 }
 
-void check_energy_balance(const Config &config, const BeamSystem &beam_sys) {
+static void check_energy_balance(const Config &config, const BeamSystem &beam_sys) {
     if (!config.check_energy_balance) {
         return;
     }
@@ -475,7 +207,7 @@ void check_energy_balance(const Config &config, const BeamSystem &beam_sys) {
     }
 }
 
-inline void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
+static void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
                                                    Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
                                                    Scalar theta_5l, Scalar theta_6l, Vec3 &f1, Vec3 &m1, Vec3 &f2,
                                                    Vec3 &m2) {
@@ -548,8 +280,8 @@ inline void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar 
     m2.z() = M5;
 }
 
-void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans,
-                               vector<Quaternion> &d_rot) {
+static void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans,
+                                      vector<Quaternion> &d_rot) {
 
     assert(X.size() == d_trans.size() && X.size() == d_rot.size());
     if (config.bc_case == BC_Case::CANTILEVER) {
