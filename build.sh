@@ -15,7 +15,7 @@ while [ "$#" -gt 0 ]; do
         -g)
             export BUILD_TYPE="debug"
             ;;
-        -c)
+        -c|--clean)
             make -C $BeamNonlinHome/src clean
             exit $?
             ;;

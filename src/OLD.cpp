@@ -871,20 +871,3 @@ static void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar 
     m2.y() = -M6;
     m2.z() = M5;
 }
-
-static void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans,
-                                      vector<Quaternion> &d_rot) {
-
-    assert(X.size() == d_trans.size() && X.size() == d_rot.size());
-    if (config.bc_case == BC_Case::CANTILEVER) {
-        /*Rotate the reference configuration rigidly so that it matches The orientation at the base. Also set all
-        rotations equal to the base rotation*/
-        const Quaternion &q_base = config.bc_orientation_base;
-        const Mat3 R = q_base.to_matrix();
-        assert(X[0].isApprox(Vec3::Zero()));
-        for (Index i = 0; i < X.size(); i++) {
-            X[i] = R * X[i];
-            d_rot[i] = q_base;
-        }
-    }
-}

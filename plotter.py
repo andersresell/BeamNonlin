@@ -46,8 +46,8 @@ def plot_hole(x,r,ax):
     
 
 class Plotter:    
-    def __init__(self,simdir,write_gif=True) -> None:
-        os.chdir(simdir)
+    def __init__(self,write_gif=True) -> None:
+        os.chdir(os.getcwd())
         print("Python script running from the following directory:\n",os.getcwd())
         self.output_dir = os.path.join(os.getcwd(),"output")
         try:
@@ -323,8 +323,7 @@ class Plotter:
 
 if __name__ == "__main__":
     
-    
-    p = Plotter("testing",write_gif=False)
+    p = Plotter(write_gif=False)
     p.plot_specific_kinetic_energy_component_wise()
     #p.plot_end_node_transient()
     p.plot_energy_balance()

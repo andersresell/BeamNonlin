@@ -4,13 +4,13 @@
 Index n_glob;
 Scalar t_glob;
 
-static void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans,
-                                      vector<Quaternion> &d_rot);
 static void calc_dt(Config &config, const Geometry &geometry, const Borehole &borehole);
 
 static void calc_static_loads(const Config &config, const Geometry &geometry, vector<Vec3> &R_static_trans,
                               vector<Vec3> &R_static_rot);
 static void check_energy_balance(const Config &config, const BeamSystem &beam_sys);
+static void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans,
+                                      vector<Quaternion> &d_rot);
 
 void solve(Config &config, Geometry &geometry, const Borehole &borehole) {
 
@@ -204,5 +204,21 @@ static void check_energy_balance(const Config &config, const BeamSystem &beam_sy
         printf("Warning: Energy balance is not obeyed, energy residual = %f\n", E_residal);
     } else if (isnan(E_residal)) {
         printf("Nan detected in energy residual\n");
+    }
+}
+static void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans,
+                                      vector<Quaternion> &d_rot) {
+
+    assert(X.size() == d_trans.size() && X.size() == d_rot.size());
+    if (config.bc_case == BC_Case::CANTILEVER) {
+        /*Rotate the reference configuration rigidly so that it matches The orientation at the base. Also set all
+        rotations equal to the base rotation*/
+        const Quaternion &q_base = config.bc_orientation_base;
+        const Mat3 R = q_base.to_matrix();
+        assert(X[0].isApprox(Vec3::Zero()));
+        for (Index i = 0; i < X.size(); i++) {
+            X[i] = R * X[i];
+            d_rot[i] = q_base;
+        }
     }
 }
