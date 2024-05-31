@@ -798,3 +798,93 @@ inline void set_simple_bc(const Config &config, const Geometry &geometry, BeamSy
         assert(false);
     }
 }
+
+static void calc_element_forces_local_rotated_TEST(Scalar ri, Scalar ro, Scalar l0, Scalar E, Scalar G, Scalar ul,
+                                                   Scalar theta_1l, Scalar theta_2l, Scalar theta_3l, Scalar theta_4l,
+                                                   Scalar theta_5l, Scalar theta_6l, Vec3 &f1, Vec3 &m1, Vec3 &f2,
+                                                   Vec3 &m2) {
+    const Scalar A = M_PI * (ro * ro - ri * ri);
+    const Scalar I = M_PI / 4 * (ro * ro * ro * ro - ri * ri * ri * ri);
+    const Scalar J = 2 * I;
+
+    /*Normal force (F1)
+     [[F1], = A*E/l0[[ 1 -1],*[[0],
+      [F4]]          [-1  1]]  [ul]]
+    */
+    const Scalar F1 = A * E * (-ul) / l0;
+    const Scalar F4 = -F1;
+
+    /*--------------------------------------------------------------------
+    Torsion:
+    Used the theory from this link:
+    https://www.acs.psu.edu/drussell/Demos/Torsional/torsional.html
+    which is a simple wave equation. As long as circular bars are used
+    I_p = K and these terms disappear.
+    Governing equation is then:
+    I_p * rho * phitors_tt = G * K * phitors_xx
+    --------------------------------------------------------------------*/
+    const Scalar K = J; // cicular cross-section
+    const Scalar M1 = G * K * (theta_1l - theta_4l) / l0;
+    const Scalar M4 = -M1;
+
+    /*Bending. Euler Bernoulli is used, symmetrical cross section
+    The original matrix reads
+    EI/L³ *[[ 12  6L  -12  6L ]
+            [ 6L  4L² -6L  2L²]
+            [-12 -6L   12 -6L ]
+            [ 6L  2L² -6L  4L²]]
+    multiplied by [w1 theta1, w2 theta2],
+    however, it can be simplified, since w1=w2=0,
+    rows 1 and 3 can be skipped resulting in
+    EI/L²**[[ 6   6 ]*[[theta1 ]
+            [ 4L  2L]  [theta2 ]]
+            [-6  -6 ]
+            [ 2L  4L]]
+    */
+
+    const Scalar F2 = E * I / (l0 * l0) * (6 * theta_2l + 6 * theta_5l);
+    const Scalar M2 = E * I / l0 * (4 * theta_2l + 2 * theta_5l);
+    const Scalar F5 = -F2;
+    const Scalar M5 = E * I / l0 * (2 * theta_2l + 4 * theta_5l);
+
+    const Scalar F3 = E * I / (l0 * l0) * (6 * theta_3l + 6 * theta_6l);
+    const Scalar M3 = E * I / l0 * (4 * theta_3l + 2 * theta_6l);
+    const Scalar F6 = -F3;
+    const Scalar M6 = E * I / l0 * (2 * theta_3l + 4 * theta_6l);
+    // const Scalar F2 = E * I / (l0 * l0) * (6 * theta_2l + 6 * theta_5l);
+    // const Scalar M2 = E * I / (l0 * l0) * (4 * l0 * theta_2l + 2 * l0 * theta_5l);
+    // const Scalar F5 = -F2;
+    // const Scalar M5 = E * I / (l0 * l0) * (2 * l0 * theta_2l + 4 * l0 * theta_5l);
+    f1.x() = F1;
+    f1.y() = F2;
+    f1.z() = F3;
+
+    m1.x() = M1;
+    m1.y() = -M3;
+    m1.z() = M2;
+
+    f2.x() = F4;
+    f2.y() = F5;
+    f2.z() = F6;
+
+    m2.x() = M4;
+    m2.y() = -M6;
+    m2.z() = M5;
+}
+
+static void set_initial_configuration(const Config &config, vector<Vec3> &X, vector<Vec3> &d_trans,
+                                      vector<Quaternion> &d_rot) {
+
+    assert(X.size() == d_trans.size() && X.size() == d_rot.size());
+    if (config.bc_case == BC_Case::CANTILEVER) {
+        /*Rotate the reference configuration rigidly so that it matches The orientation at the base. Also set all
+        rotations equal to the base rotation*/
+        const Quaternion &q_base = config.bc_orientation_base;
+        const Mat3 R = q_base.to_matrix();
+        assert(X[0].isApprox(Vec3::Zero()));
+        for (Index i = 0; i < X.size(); i++) {
+            X[i] = R * X[i];
+            d_rot[i] = q_base;
+        }
+    }
+}

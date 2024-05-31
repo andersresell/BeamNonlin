@@ -112,36 +112,27 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     /*Update translation velocities and the translational accelerations */
     for (Index i = 0; i < N; i++) {
         const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
-        // v_trans[i] += 0.5 * dt * (a_trans[i] + a_trans_new);
         v_trans[i] += dt * 0.5 * (a_trans[i] + a_trans_new);
         a_trans[i] = a_trans_new;
     }
 
     // rotations: Simo and Wong algorithm
     for (Index i = 0; i < N; i++) {
-        const Quaternion &q = d_rot[i];
         const Mat3 &J = J_u[i].asDiagonal();
         const Vec3 &L_n = L_rot[i];
         Vec3 &omega_u = v_rot[i];
         Vec3 &alpha_u = a_rot[i];
-
-        const Mat3 U_np = q.to_matrix(); // maybe optimize later
-        Vec3 &m = m_rot[i];              // Moment at t_{n+1/2}
+        const Mat3 U_np = d_rot[i].to_matrix();
+        Vec3 &m = m_rot[i]; // Moment at t_{n+1/2}
         const Vec3 m_np = R_ext_rot[i] - R_int_rot[i];
         /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
         Vec3 m_half = 0.5 * (m + m_np);
-
         m = m_np; // Update moment
-        // if (i == 1)
-        //     cout << "m_half\n"
-        //          << m_half << endl;
-
         const Vec3 omega_u_old = omega_u;
         omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m_half);
-        // cout << "omega_u\n " << omega_u << endl;
 #ifndef NDEBUG
-        Vec3 L_np = U_np * J * omega_u;
-        Vec3 res = L_np - L_n - dt * m_half;
+        const Vec3 L_np = U_np * J * omega_u;
+        const Vec3 res = L_np - L_n - dt * m_half;
         assert(is_close(res.norm(), 0.0));
 #endif
         alpha_u = 2 / dt * (omega_u - omega_u_old) -
@@ -545,7 +536,7 @@ static void calc_inner_forces(const Config &config, const Geometry &geometry, Be
     const Scalar G = config.get_G();
     const Scalar beta_rayleigh = config.beta_rayleigh;
 
-    Scalar A, I_2, I_3, J;
+    Scalar A{}, I_2{}, I_3{}, J{};
 
 #pragma omp parallel for
     for (Index ie = i_first; ie < Ne; ie += 2) {
