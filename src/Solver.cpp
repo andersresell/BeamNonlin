@@ -1,5 +1,7 @@
 #include "../include/Solver.hpp"
+#include "../include/HoleContact.hpp"
 #include "../include/Numerics.hpp"
+#include "../include/UserFunction.hpp"
 
 Index n_glob;
 Scalar t_glob;
@@ -30,6 +32,10 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole) {
 
     calc_static_loads(config, geometry, beam.R_static_trans, beam.R_static_rot);
 
+    calc_initial_accelerations(config, geometry, borehole, beam);
+
+    print_user_defined_external_forces_message();
+
     printf("\n"
            "-----------------Starting simulation----------------\n"
            "Running with dt = %f for %i timesteps,\n"
@@ -49,6 +55,7 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole) {
         // remove later
         n_glob = n;
         t_glob = config.t;
+        DEBUG_ONLY(printf("n = %i", n));
 
         if (n % 1000 == 0) {
             printf("\n---------------------------------\n"
@@ -115,8 +122,8 @@ static void calc_dt(Config &config, const Geometry &geometry, const Borehole &bo
         Scalar dx = geometry.dx_e(ie);
 
         Scalar A{0}, I_2{0}, I_3{0}, unused{0};
-        geometry.get_cross_section_properties(ie, A, I_2, I_3,
-                                              unused); // should check if this works for rectangular cross sections
+        geometry.calc_cross_section_properties(ie, A, I_2, I_3,
+                                               unused); // should check if this works for rectangular cross sections
 
         Scalar I = max(I_2, I_3);
         Scalar r_g = sqrt(I / A); /*Radius of gyration*/
@@ -190,13 +197,13 @@ static void calc_static_loads(const Config &config, const Geometry &geometry, ve
     }
 }
 
-static void check_energy_balance(const Config &config, const BeamSystem &beam_sys) {
+static void check_energy_balance(const Config &config, const BeamSystem &beam) {
     if (!config.check_energy_balance) {
         return;
     }
-    const Scalar KE = beam_sys.KE;
-    const Scalar W_int = beam_sys.W_int;
-    const Scalar W_ext = beam_sys.W_ext;
+    const Scalar KE = beam.KE;
+    const Scalar W_int = beam.W_int;
+    const Scalar W_ext = beam.W_ext;
     const Scalar tol = config.energy_balance_tol;
     const Scalar E_residal = KE + W_int - W_ext;
 

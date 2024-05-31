@@ -43,12 +43,16 @@ void InputParser::create_geometry(unique_ptr<Geometry> &geometry) const {
             root_name, "cross_section_type", cross_section_type_from_string, CrossSectiontype::PIPE);
 
         if (cross_section_type == CrossSectiontype::PIPE) {
-            D_outer_uniform = read_required_option<Scalar>(root_name, "D_outer_uniform");
-            D_inner_uniform = read_required_option<Scalar>(root_name, "D_inner_uniform");
+            D_outer_uniform =
+                read_required_option<Scalar>(root_name, "D_outer_uniform", "Must be specified for pipe cross section");
+            D_inner_uniform =
+                read_required_option<Scalar>(root_name, "D_inner_uniform", "Must be specified for pipe cross section");
         } else {
             assert(cross_section_type == CrossSectiontype::RECANGLE);
-            h2_uniform = read_required_option<Scalar>(root_name, "h2_uniform");
-            h3_uniform = read_required_option<Scalar>(root_name, "h3_uniform");
+            h2_uniform =
+                read_required_option<Scalar>(root_name, "h2_uniform", "Must be specified for rectangle cross section");
+            h3_uniform =
+                read_required_option<Scalar>(root_name, "h3_uniform", "Must be specified for rectangle cross section");
         }
         geometry =
             make_unique<Geometry>(L0, N, D_outer_uniform, D_inner_uniform, h2_uniform, h3_uniform, cross_section_type);
@@ -65,6 +69,10 @@ void InputParser::parse_yaml_config_options(Config &config) const {
     config.t_max = read_required_option<Scalar>(root_name_setup, "t_max");
     config.CFL = read_required_option<Scalar>(root_name_setup, "CFL");
     config.save_csv = read_optional_option<bool>(root_name_setup, "save_csv", true);
+    // config.user_defined_force = read_optional_option<bool>(root_name_setup, "user_defined_force", false);
+    // printf("Warning: Using user defined force, remember to include the source file when building, or else nothing
+    // will "
+    //        "happen\n");
     config.n_write = read_optional_option<Index>(root_name_setup, "n_write", 1);
     config.check_energy_balance = read_optional_option<bool>(root_name_setup, "check_energy_balance", false);
     if (config.check_energy_balance) {
@@ -176,8 +184,10 @@ void InputParser::parse_bcs_and_loads(const Geometry &geometry, Config &config) 
     }
 }
 
-string InputParser::option_not_specified_msg(string root_name, string option_name) const {
+string InputParser::option_not_specified_msg(string root_name, string option_name, string extra_msg) const {
     string msg = "\"" + option_name + "\" not specified in the input file \"" + input_filename + "\"\n";
-    msg += "\"with base name " + root_name + "\"";
+    msg += "\"with base name \"" + root_name + "\"";
+    if (!extra_msg.empty())
+        msg += "\n" + extra_msg;
     return msg;
 }

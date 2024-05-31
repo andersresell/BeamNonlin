@@ -36,11 +36,9 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry) : W_int{0
     const Scalar rho = config.rho;
 
     for (Index ie = 0; ie < Ne; ie++) {
-        Scalar dx = geometry.dx_e(ie);
-        Scalar A = geometry.A_e(ie);
-        Scalar m = rho * dx * A;
-        Scalar ro = geometry.ro_e(ie);
-        Scalar ri = geometry.ri_e(ie);
+        const Scalar dx = geometry.dx_e(ie);
+        const Scalar A = geometry.A_e(ie);
+        const Scalar m = rho * dx * A;
 
         /*Lumped mass*/
 
@@ -65,14 +63,28 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry) : W_int{0
 
         from https://en.wikipedia.org/wiki/List_of_moments_of_inertia :
         */
-        Scalar Je11 = rho * M_PI * dx / 2 * (pow(ro, 4) - pow(ri, 4));
+        Scalar Je11{};
+        switch (geometry.get_cross_section_type()) {
+        case CrossSectiontype::PIPE: {
+            const Scalar ro = geometry.ro_e(ie);
+            const Scalar ri = geometry.ri_e(ie);
+            Je11 = rho * M_PI * dx / 2 * (powi<4>(ro) - powi<4>(ri));
+            break;
+        }
+        case CrossSectiontype::RECANGLE: {
+            const Scalar h2 = geometry.h2_e(ie);
+            const Scalar h3 = geometry.h3_e(ie);
+            Je11 = m / 12 * (h2 * h2 + h3 * h3);
+            break;
+        }
+        default:
+            assert(false);
+        }
         // Je11 *= 30;
-        Scalar Je22;
-        // Je22 = rho * M_PI * dx / 12 * (3 * (pow(ro, 4) - pow(ri, 4)) + dx * dx * (ro * ro - ri * ri));
-        Je22 = 1.0 / 12 * m * dx *
-               dx; // Moment of inertia of thin rod. Using this instead of the exact moment of inertia as Belytscho does
-        // Je22 *= 1;
-        Scalar Je33 = Je22;
+
+        const Scalar Je22 = 1.0 / 12 * m * dx * dx; // Moment of inertia of thin rod. Using this instead of the exact
+                                                    // moment of inertia as Belytscho does Je22 *= 1;
+        const Scalar Je33 = Je22;
 
         // Not the exact same procedure as proposed in Crisfield.
         // Seems like the moment of inertia is 1/12*m*l² there for y and z, i.e a thin rod
@@ -82,7 +94,7 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry) : W_int{0
         Crisfield given by eqns 24.141 and 24.142 which involves an eigenvalue decomposition to find
         the diagonal inertia matrix for each node. Since the reference configuration used now already
         leads to diagonal system, this wont make any difference.*/
-        Vec3 Je = {Je11, Je22, Je33};
+        const Vec3 Je = {Je11, Je22, Je33};
         J_u[ie] += 0.5 * Je;
         J_u[ie + 1] += 0.5 * Je;
     }
@@ -194,7 +206,7 @@ void create_output_dir(Config &config) {
 
     if (filesystem::exists(output_dir)) {
         if (!filesystem::remove_all(output_dir)) {
-            throw runtime_error{"Couldn't remove old output directory: " + output_dir};
+            throw runtime_error{"Failed to remove old output directory: " + output_dir};
         }
     }
     if (!filesystem::create_directory(output_dir)) {

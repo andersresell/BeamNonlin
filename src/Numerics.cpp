@@ -1,6 +1,8 @@
-
-
 #include "../include/Numerics.hpp"
+#include "../include/Containers.hpp"
+#include "../include/HoleContact.hpp"
+#include "../include/SolverUtils.hpp"
+#include "../include/UserFunction.hpp"
 
 static void calc_forces(const Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam);
 
@@ -147,11 +149,30 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     }
 }
 
+void calc_initial_accelerations(const Config &config, const Geometry &geometry, const Borehole &borehole,
+                                BeamSystem &beam) {
+    calc_forces(config, geometry, borehole, beam);
+    for (Index i = 0; i < geometry.get_N(); i++) {
+        const Scalar M = beam.M[i];
+        const Vec3 f = beam.R_ext_trans[i] - beam.R_int_trans[i];
+        beam.a_trans[i] = f / M;
+
+        const Mat3 U = beam.d_rot[i].to_matrix();
+        const Mat3 &J_u = beam.J_u[i].asDiagonal();
+        const Vec3 &m = beam.R_ext_rot[i] - beam.R_int_rot[i];
+        const Vec3 &omega_u = beam.v_rot[i];
+        beam.a_rot[i] = J_u.inverse() * (U.transpose() * m - omega_u.cross(J_u * omega_u));
+    }
+}
+
 void calc_forces(const Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam) {
     const Index N = geometry.get_N();
 
     zero_internal_and_set_static_forces(N, beam.R_static_trans, beam.R_static_rot, beam.R_int_trans, beam.R_int_rot,
                                         beam.R_ext_trans, beam.R_ext_rot);
+
+    add_user_defined_external_forces(config, geometry, borehole, beam.d_trans, beam.d_rot, beam.R_ext_trans,
+                                     beam.R_ext_rot);
 
     calc_inner_forces<0>(config, geometry, beam);
     calc_inner_forces<1>(config, geometry, beam);
@@ -254,8 +275,7 @@ static void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, con
     DEBUG_ONLY(cout << "e1 = " << e1.transpose() << endl;);
     // Calculate intermediate rotation between triads
     const Mat3 DeltaR = U * T.transpose();
-    Quaternion qDeltaR;
-    qDeltaR.from_matrix(DeltaR);
+    const Quaternion qDeltaR{DeltaR};
     assert(!is_close(qDeltaR.q0, 0.0, 0.1));        // if q0 is 0, gamma_half becomes singular
     const Vec3 gamma_half = qDeltaR.q / qDeltaR.q0; // eq 16.34 divided by 2
 
@@ -386,7 +406,6 @@ static void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, con
     assert(R_int_e.allFinite());
     DEBUG_ONLY(cout << "R_int_e:\n" << R_int_e << endl;);
 
-    DEBUG_ONLY(cout << "R_damp\n" << R_damp << endl;);
     R_int_trans[ie] += R_int_e.segment(0, 3);
     R_int_rot[ie] += R_int_e.segment(3, 3);
     R_int_trans[ie + 1] += R_int_e.segment(6, 3);
@@ -394,6 +413,7 @@ static void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, con
     if (beta_rayleigh > 0) {
         const Vec12 R_damp = calc_approx_rayleigh_beta_damping(beta_rayleigh, A, I_2, I_3, J, l0, youngs, G, E, U, T,
                                                                v_trans[ie], v_trans[ie + 1], v_rot[ie], v_rot[ie + 1]);
+        DEBUG_ONLY(cout << "R_damp\n" << R_damp << endl;);
         R_int_trans[ie] += R_damp.segment(0, 3);
         R_int_rot[ie] += R_damp.segment(3, 3);
         R_int_trans[ie + 1] += R_damp.segment(6, 3);
@@ -540,7 +560,7 @@ static void calc_inner_forces(const Config &config, const Geometry &geometry, Be
 
 #pragma omp parallel for
     for (Index ie = i_first; ie < Ne; ie += 2) {
-        geometry.get_cross_section_properties(ie, A, I_2, I_3, J);
+        geometry.calc_cross_section_properties(ie, A, I_2, I_3, J);
         calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, beam.R_int_trans, beam.R_int_rot, E, G, I_2, I_3, A,
                                   J, beta_rayleigh, beam.v_trans, beam.v_rot);
     }

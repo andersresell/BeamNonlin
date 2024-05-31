@@ -31,7 +31,7 @@ using std::to_string;
 using std::unique_ptr;
 using std::vector;
 
-// #define PRINT_DEBUG_MESSAGES 1
+//#define PRINT_DEBUG_MESSAGES
 
 #ifndef NDEBUG
 #ifdef PRINT_DEBUG_MESSAGES
@@ -80,13 +80,11 @@ using Mat12_3 = Eigen::Matrix<Scalar, 12, 3>;
 using Mat6_12 = Eigen::Matrix<Scalar, 6, 12>;
 using Mat7_12 = Eigen::Matrix<Scalar, 7, 12>;
 
-template <typename T> int sign(T val)
-{
+template <typename T> int sign(T val) {
     return (val > 1) - (val < 1);
 }
 
-inline bool is_close(Scalar a, Scalar b, Scalar tol = SMALL_SCALAR)
-{
+inline bool is_close(Scalar a, Scalar b, Scalar tol = SMALL_SCALAR) {
     const Scalar scaled_tol =
         tol * max((Scalar)1.0,
                   max(abs(a), abs(b))); // Need to scale the tolerance so that it work for numbers of various sizes
@@ -94,25 +92,21 @@ inline bool is_close(Scalar a, Scalar b, Scalar tol = SMALL_SCALAR)
     return abs(b - a) <= scaled_tol;
 }
 
-inline bool is_orthogonal(const Mat3 &R, const Scalar tol = 1e-8)
-{
+inline bool is_orthogonal(const Mat3 &R, const Scalar tol = 1e-8) {
 
     return is_close(R.determinant(), 1.0, tol) && is_close((R.transpose() - R.inverse()).norm(), 0.0, tol);
 }
 
-inline Mat3 skew(const Vec3 &a)
-{
+inline Mat3 skew(const Vec3 &a) {
     return Mat3{{0, -a.z(), a.y()}, {a.z(), 0, -a.x()}, {-a.y(), a.x(), 0}};
 }
 
-template <typename T> inline T sqr(T val)
-{
+template <typename T> inline T sqr(T val) {
     return val * val;
 }
 
 /*pow where the exponent is a positive integer (since the builtin pow can be slow and inaccurate for integer powers)*/
-template <Index exp> inline Scalar powi(Scalar base)
-{
+template <Index exp> inline Scalar powi(Scalar base) {
     static_assert(exp > 0);
     if constexpr (exp == 1)
         return base;
@@ -120,14 +114,12 @@ template <Index exp> inline Scalar powi(Scalar base)
         return base * powi<exp - 1>(base);
 }
 
-template <typename T> inline void print_std_vector(const vector<T> &v, string label = "")
-{
+template <typename T> inline void print_std_vector(const vector<T> &v, string label = "") {
     if (label != "")
         cout << label << "\n";
     cout << "\n[";
     Index N = v.size();
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         cout << " " << v[i];
         if (i < N - 1)
             cout << ",";
@@ -137,13 +129,11 @@ template <typename T> inline void print_std_vector(const vector<T> &v, string la
     }
 }
 
-template <typename T> inline void print_raw_array(const T *v, Index N, string label = "")
-{
+template <typename T> inline void print_raw_array(const T *v, Index N, string label = "") {
     if (label != "")
         cout << label << "\n";
     cout << "\n[";
-    for (Index i = 0; i < N; i++)
-    {
+    for (Index i = 0; i < N; i++) {
         cout << " " << v[i];
         if (i < N - 1)
             cout << ",";

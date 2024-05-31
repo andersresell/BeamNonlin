@@ -1,8 +1,7 @@
 #pragma once
 #include "Includes.hpp"
 
-struct Quaternion
-{
+struct Quaternion {
     Scalar q0;
     Vec3 q;
 
@@ -12,6 +11,7 @@ struct Quaternion
     Scalar norm_sqr() const;
     void normalize();
     Quaternion() : q0{0}, q{Vec3::Zero()} {}
+    Quaternion(const Mat3 &R) { from_matrix(R); }
     /*Create from pseudo vector*/
     Quaternion(const Vec3 &Theta);
 
@@ -29,9 +29,10 @@ struct Quaternion
     /*Performs the operation vn = R(q)^T*v0*/
     Vec3 rotate_vector_reversed(const Vec3 &v0) const;
 
-    friend ostream &operator<<(ostream &os, const Quaternion &rhs)
-    {
-        return os << "q0=" << rhs.q0 << "\nq1=" << rhs.q.x() << "\nq2=" << rhs.q.y() << "\nq3=" << rhs.q.z() << endl;
+    friend ostream &operator<<(ostream &os, const Quaternion &rhs) {
+        return os << "[q0, q1, q2, q3] = [" << rhs.q0 << ", " << rhs.q.x() << ", " << rhs.q.y() << ", " << rhs.q.z()
+                  << "]\n";
+        // return os << "q0=" << rhs.q0 << "\nq1=" << rhs.q.x() << "\nq2=" << rhs.q.y() << "\nq3=" << rhs.q.z() << endl;
     }
 };
 

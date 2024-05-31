@@ -55,13 +55,25 @@ SRC = BeamNonlin.cpp \
 
 OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(SRC)) 
 
+USER_SRC = UserFunction.cpp
+USER_OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(USER_SRC)) 
+OBJ += $(USER_OBJ)
+ifdef USER_DEFINED_EXTERNAL_FORCE_FILE
+USER_SRC_FLAGS=-DUSER_DEFINED_EXTERNAL_FORCE_FILE='"$(USER_DEFINED_EXTERNAL_FORCE_FILE)"' -I$(dir $(USER_DEFINED_EXTERNAL_FORCE_FILE))
+else
+USER_SRC_FLAGS=
+endif
 
-
+# ifdef USER_DEFINED_EXTERNAL_FORCE
+# USER_SRC = $(USER_DEFINED_EXTERNAL_FORCE)
+# USER_OBJ = $(BUILD_DIR)/$(notdir $(USER_SRC:.cpp=.o))
+# OBJ += $(USER_OBJ)
+# endif
 
 all: prep $(EXE)
 
 $(EXE): $(OBJ) 
-	g++ -o $(EXE) $^ $(LDLIBS) $(CXX_FLAGS)
+	g++ -o $(EXE) $^ $(CXX_FLAGS)
 
 
 #*******************************************************************************
@@ -71,9 +83,12 @@ $(EXE): $(OBJ)
 $(BUILD_DIR)/%.o: %.cpp  #adding .configure as a dependency, so that compilation is redone if this file is changed
 	g++ -MMD -c -o $@ $< $(CXX_FLAGS)
 
+
+$(BUILD_DIR)/$(USER_SRC:.cpp=.o): $(USER_SRC) 
+#@rm -f $@
+	g++ -MMD -c -o "$@" "$<" $(CXX_FLAGS) $(USER_SRC_FLAGS)
+
 -include $(OBJ:.o=.d)
-
-
 
 prep:
 	mkdir -p $(BUILD_DIR_DEBUG)

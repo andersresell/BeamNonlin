@@ -4,6 +4,8 @@ clear
 run_plotter=0
 input_file_specififed=0
 
+echo "pwd" $(pwd)
+
 while [ "$#" -gt 0 ]; do
     case "$1" in
         -p|--plot)
@@ -13,6 +15,10 @@ while [ "$#" -gt 0 ]; do
         -f=*|--file=*)
             input_file="${1#*=}"
             input_file_specififed=1
+            ;;
+        uf|--user-force=*)
+            user_force_function_file="${1#*=}"
+            export USER_DEFINED_EXTERNAL_FORCE_FILE="$(pwd)/$user_force_function_file"
             ;;
         *)
             echo "Invalid option"

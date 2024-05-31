@@ -1,18 +1,19 @@
 setup:
   CFL: 0.5
   #n_max: 100000000
-  n_max: 100000
+  n_max: 500000
   t_max: 10
-  n_write: 5000
-  n_threads: 4
+  n_write: 3000
+  n_threads: 1
   save_csv : true
-  gravity_enabled: false
-  gravity_acc: [0, 0,-100]
+  gravity_enabled: true
+  #gravity_acc: [0, 0,-10]
   check_energy_balance: true
-  rayleigh_damping_enabled: true
+  rayleigh_damping_enabled: false
   alpha_rayleigh: 10
   beta_rayleigh: 3e-6
   borehole_included: true
+
 
 bc: 
   case: cantilever
@@ -21,10 +22,10 @@ bc:
   
 loads: 
   point_loads_rel_to_base_orientation: true
-  point_loads:
-  - R: [0,0,0, 0, 616850.275068085,0]
+  #point_loads:
+  #- R: [0,0,0, 0, 616850.275068085,0]
                    
-    rel_loc: 1
+  #  rel_loc: 1
   #  - R: [0, 0, 0, 0,0, 0]
   #    rel_loc: 1
     
@@ -36,9 +37,12 @@ properties:
  
 geometry:
   L0: 10
-  N: 50
+  N: 20
   D_outer_uniform: 0.1
   D_inner_uniform: 0.0
+  cross_section_type: rectangle
+  h2_uniform: 0.3
+  h3_uniform: 0.25
 
 
 

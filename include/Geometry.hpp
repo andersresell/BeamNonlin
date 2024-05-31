@@ -23,6 +23,7 @@ class Geometry {
 
     Index get_Ne() const { return X.size() - 1; }
     Index get_N() const { return X.size(); }
+    CrossSectiontype get_cross_section_type() const { return cross_section_type; }
     Scalar get_L0() const {
         assert(X[0].isZero() && X[X.size() - 1].y() == 0 && X[X.size() - 1].z() == 0);
         return (X[X.size() - 1] - X[0]).norm();
@@ -65,7 +66,7 @@ class Geometry {
         }
     }
 
-    void get_cross_section_properties(const Index ie, Scalar &A, Scalar &I_2, Scalar &I_3, Scalar &J) const {
+    void calc_cross_section_properties(const Index ie, Scalar &A, Scalar &I_2, Scalar &I_3, Scalar &J) const {
         assert(ie < get_Ne());
         A = A_e(ie);
         if (cross_section_type == CrossSectiontype::PIPE) {
@@ -79,7 +80,7 @@ class Geometry {
             const Scalar h2_ = h2_e(ie);
             const Scalar h3_ = h3_e(ie);
             I_2 = h2_ * powi<3>(h3_) / 12;
-            I_2 = h3_ * powi<3>(h2_) / 12;
+            I_3 = h3_ * powi<3>(h2_) / 12;
             J = h2_ * h3_ * (h2_ * h2_ + h3_ * h3_) / 12;
         }
     }

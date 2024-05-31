@@ -9,6 +9,7 @@ struct Config {
     Scalar t_max;
     Scalar CFL;
     bool save_csv = true;
+    // bool user_defined_force;
     Index n_write;
     string base_dir;
     string output_dir;
