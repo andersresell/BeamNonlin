@@ -55,20 +55,24 @@ SRC = BeamNonlin.cpp \
 
 OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(SRC)) 
 
-USER_SRC = UserFunction.cpp
-USER_OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(USER_SRC)) 
-OBJ += $(USER_OBJ)
 ifdef USER_DEFINED_EXTERNAL_FORCE_FILE
-USER_SRC_FLAGS=-DUSER_DEFINED_EXTERNAL_FORCE_FILE='"$(USER_DEFINED_EXTERNAL_FORCE_FILE)"' -I$(dir $(USER_DEFINED_EXTERNAL_FORCE_FILE))
+SRC_USER = $(USER_DEFINED_EXTERNAL_FORCE_FILE)
+OBJ_USER = $(BUILD_DIR)/$(notdir $(SRC_USER:.cpp=.o))
+#FLAGS_USER = -DUSER_DEFINED_EXTERNAL_FORCE_FILE 
 else
-USER_SRC_FLAGS=
+SRC_USER = UserFunction.cpp
+OBJ_USER = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(SRC_USER))
+#FLAGS_USER =
 endif
 
-# ifdef USER_DEFINED_EXTERNAL_FORCE
-# USER_SRC = $(USER_DEFINED_EXTERNAL_FORCE)
-# USER_OBJ = $(BUILD_DIR)/$(notdir $(USER_SRC:.cpp=.o))
-# OBJ += $(USER_OBJ)
-# endif
+OBJ += $(OBJ_USER) 
+
+$(info obj= $(OBJ))
+
+
+$(info src_user= $(SRC_USER))
+
+$(info obj_user= $(OBJ_USER))
 
 all: prep $(EXE)
 
@@ -84,9 +88,12 @@ $(BUILD_DIR)/%.o: %.cpp  #adding .configure as a dependency, so that compilation
 	g++ -MMD -c -o $@ $< $(CXX_FLAGS)
 
 
-$(BUILD_DIR)/$(USER_SRC:.cpp=.o): $(USER_SRC) 
-#@rm -f $@
-	g++ -MMD -c -o "$@" "$<" $(CXX_FLAGS) $(USER_SRC_FLAGS)
+$(BUILD_DIR)/$(SRC:.cpp=.o): $(SRC)  
+	g++ -MMD -c -o "$@" "$<" $(CXX_FLAGS)  
+
+$(BUILD_DIR)/$(notdir $(SRC_USER:.cpp=.o)): $(SRC_USER)  
+	g++ -MMD -c -o "$@" "$<" $(CXX_FLAGS)  #$(FLAGS_USER)
+
 
 -include $(OBJ:.o=.d)
 

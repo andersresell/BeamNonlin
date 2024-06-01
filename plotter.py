@@ -42,8 +42,16 @@ def plot_hole(x,r,ax):
         x2 = np.array([x[i,1],x[i+1,1]])+r[i]
         x3 = np.array([x[i,2],x[i+1,2]])
         ax.plot3D(x1,x2,x3,color=color)
-        
-    
+
+component_to_index = {"x":0,"y":1,"z":2,"all":np.arange(0,3)}
+vec3_data_first_index = {"u":3, "v": 15, "omega_u": 18} #add more when needed
+
+def get_vector_components_from_data(data,datatype,component="all"):
+    assert datatype in vec3_data_first_index
+    assert component in component_to_index
+    first_index = vec3_data_first_index[datatype]
+    return data[:,first_index+component_to_index[component]]
+   
 
 class Plotter:    
     def __init__(self,write_gif=True) -> None:
@@ -157,12 +165,14 @@ class Plotter:
             
         if self.write_gif: self.create_gif()
     
-    def plot_end_node_transient(self):
+    def plot_end_node_transient(self,components):
         
+        assert len(components)==len(set(components))
+        for c in components:
+            assert c=="x" or c=="y" or c=="z" 
         
         times = []
-        
-        disp = []
+        disp_all_times = []
         for n in range(self.n_steps):
   
             if n % self.n_write != 0: continue
@@ -170,22 +180,20 @@ class Plotter:
             times.append(self.t)
             
             data = self.read_data(n)
-            u = data[:,3:6]
-            v =data[:,15:18]
-            omega_u = data[:,18:21]
+            disp_all_nodes = get_vector_components_from_data(data,"u")
+            disp_all_times.append(disp_all_nodes[-1,:])
             
-            #disp.append(omega_u[-1][2])
-            #disp.append(u[-1][2])
-            disp.append(v[-1][2])
+        t = np.array(times)
+        for i,c in enumerate(components):
+            plt.figure()
+            disp_component = np.zeros(len(disp_all_times))
+            for j,vec in enumerate(disp_all_times):
+                disp_component[j] = disp_all_times[j][i]
+            plt.plot(t,disp_component)
+            plt.xlabel("t [s]")
+            plt.ylabel(c+"-displacement [m]")
             
-        plt.figure()
-        times = np.array(times)
-        disp = np.array(disp)
-        plt.plot(times,disp)
-        plt.xlabel("t")
-        #plt.xlim([0,5])
-        plt.ylim([-5,10])
-        
+            
     def animate_vertical_disp(self):
         plt.figure()
         for n in range(self.n_steps):
@@ -324,7 +332,7 @@ class Plotter:
 if __name__ == "__main__":
     
     p = Plotter(write_gif=False)
-    p.plot_specific_kinetic_energy_component_wise()
+    #p.plot_specific_kinetic_energy_component_wise()
     #p.plot_end_node_transient()
     p.plot_energy_balance()
     #p.animate_vertical_disp()  

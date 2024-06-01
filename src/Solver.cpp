@@ -34,8 +34,6 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole) {
 
     calc_initial_accelerations(config, geometry, borehole, beam);
 
-    print_user_defined_external_forces_message();
-
     printf("\n"
            "-----------------Starting simulation----------------\n"
            "Running with dt = %f for %i timesteps,\n"
