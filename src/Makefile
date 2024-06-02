@@ -51,7 +51,9 @@ SRC = BeamNonlin.cpp \
 	  InputParser.cpp \
 	  Borehole.cpp \
 	  HoleContact.cpp \
-	  BattiniBeam.cpp
+	  CrisfieldBeam.cpp \
+	  BattiniBeam.cpp \
+	  Testing.cpp
 
 OBJ = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(SRC)) 
 

@@ -23,9 +23,21 @@ enum class BC_Case {
     CANTILEVER,
     SIMPLY_SUPPORTED
 };
-
 const map<string, BC_Case> bc_case_from_string{
     {"none", BC_Case::NONE}, {"cantilever", BC_Case::CANTILEVER}, {"simply_supported", BC_Case::SIMPLY_SUPPORTED}};
+
+enum class CrossSectiontype {
+    PIPE,
+    RECANGLE
+};
+const map<string, CrossSectiontype> cross_section_type_from_string{{"pipe", CrossSectiontype::PIPE},
+                                                                   {"rectangle", CrossSectiontype::RECANGLE}};
+enum class CorotationalBeamFormulation {
+    CRISFIELD,
+    BATTINI
+};
+const map<string, CorotationalBeamFormulation> corotational_beam_formulation_from_string{
+    {"crisfield", CorotationalBeamFormulation::CRISFIELD}, {"battini", CorotationalBeamFormulation::BATTINI}};
 
 struct PointLoad {
     Vec3 load_trans;
@@ -33,13 +45,5 @@ struct PointLoad {
     Index i;
     PointLoad(const vector<Scalar> R_tmp, Scalar rel_loc, const vector<Vec3> &X);
 };
-
-enum class CrossSectiontype {
-    PIPE,
-    RECANGLE
-};
-
-const map<string, CrossSectiontype> cross_section_type_from_string{{"pipe", CrossSectiontype::PIPE},
-                                                                   {"rectangle", CrossSectiontype::RECANGLE}};
 
 Mat3 triad_from_euler_angles(Scalar theta_x, Scalar theta_y, Scalar theta_z, string order = "xyz");

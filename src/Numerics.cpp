@@ -1,5 +1,7 @@
 #include "../include/Numerics.hpp"
+#include "../include/BattiniBeam.hpp"
 #include "../include/Containers.hpp"
+#include "../include/CrisfieldBeam.hpp"
 #include "../include/HoleContact.hpp"
 #include "../include/SolverUtils.hpp"
 #include "../include/UserFunction.hpp"
@@ -8,16 +10,6 @@ static void calc_forces(const Config &config, const Geometry &geometry, const Bo
 
 template <Index i_first>
 static void calc_inner_forces(const Config &config, const Geometry &geometry, BeamSystem &beam);
-
-static void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, const vector<Vec3> &d_trans,
-                                      const vector<Quaternion> &d_rot, vector<Vec3> &R_int_trans,
-                                      vector<Vec3> &R_int_rot, const Scalar youngs, const Scalar G, const Scalar I_2,
-                                      const Scalar I_3, const Scalar A, const Scalar J, const Scalar beta_rayleigh,
-                                      const vector<Vec3> &v_trans, const vector<Vec3> &v_rot);
-static Vec7 calc_element_forces_local(const Scalar l0, const Scalar youngs, const Scalar G, const Scalar I_2,
-                                      const Scalar I_3, const Scalar A, const Scalar J, const Scalar ul,
-                                      const Scalar theta_1l, const Scalar theta_2l, const Scalar theta_3l,
-                                      const Scalar theta_4l, const Scalar theta_5l, const Scalar theta_6l);
 static void set_simple_bc(const Config &config, const Geometry &geometry, BeamSystem &beam);
 static void work_update_partial(Index N, const vector<Vec3> &delta_d_trans, const vector<Vec3> &delta_d_rot,
                                 const vector<Vec3> &R_int_trans, const vector<Vec3> &R_int_rot,
@@ -33,10 +25,6 @@ static void add_mass_proportional_rayleigh_damping(Index N, Scalar alpha, const 
                                                    const vector<Vec3> &v_trans, vector<Vec3> &R_int_trans,
                                                    const vector<Vec3> &J_u, const vector<Quaternion> &d_rot,
                                                    const vector<Vec3> &v_rot, vector<Vec3> &R_int_rot);
-static Vec12 calc_approx_rayleigh_beta_damping(const Scalar beta, const Scalar A, const Scalar I_2, const Scalar I_3,
-                                               const Scalar J, const Scalar l0, const Scalar youngs, const Scalar G,
-                                               const Mat3 &E, const Mat3 &U1, const Mat3 &U2, const Vec3 &v1,
-                                               const Vec3 &v2, const Vec3 &omega1_u, const Vec3 &omega2_u);
 
 /*--------------------------------------------------------------------
 Explicit solution by the Simo-Wong algorithm for rotations and
@@ -71,6 +59,7 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
     }
 
+#pragma omp parallel for
     for (Index i = 0; i < N; i++) {
         const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
         d_trans[i] += delta_d;
@@ -80,6 +69,8 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     }
 
     // rotations: Simo and Wong algorithm
+
+#pragma omp parallel for
     for (Index i = 0; i < N; i++) {
         Quaternion &q = d_rot[i];
         const Mat3 &J = J_u[i].asDiagonal();
@@ -112,6 +103,8 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     }
 
     /*Update translation velocities and the translational accelerations */
+
+#pragma omp parallel for
     for (Index i = 0; i < N; i++) {
         const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
         v_trans[i] += dt * 0.5 * (a_trans[i] + a_trans_new);
@@ -119,6 +112,8 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     }
 
     // rotations: Simo and Wong algorithm
+
+#pragma omp parallel for
     for (Index i = 0; i < N; i++) {
         const Mat3 &J = J_u[i].asDiagonal();
         const Vec3 &L_n = L_rot[i];
@@ -187,292 +182,6 @@ void calc_forces(const Config &config, const Geometry &geometry, const Borehole 
         add_mass_proportional_rayleigh_damping(N, config.alpha_rayleigh, beam.M, beam.v_trans, beam.R_int_trans,
                                                beam.J_u, beam.d_rot, beam.v_rot, beam.R_int_rot);
     }
-}
-
-static Vec12 calc_approx_rayleigh_beta_damping(
-    const Scalar beta, const Scalar A, const Scalar I_2, const Scalar I_3, const Scalar J, const Scalar l0,
-    const Scalar youngs, const Scalar G, const Mat3 &E, const Mat3 &U1, const Mat3 &U2, const Vec3 &v1, const Vec3 &v2,
-    const Vec3 &omega1_u, const Vec3 &omega2_u) { /*Basing this on the formula R_damp_l = beta * k_l * v_l,
-                                                 First the local velocity v_l is computed by rotating the global
-                                                 components, then the local damping is computed, and finally the
-                                                 resulting force is rotated to global components*/
-
-    const Vec3 v1_l = E.transpose() * v1;
-    const Vec3 v2_l = E.transpose() * v2;
-
-    const Vec3 omega1_l = E.transpose() * U1 * omega1_u;
-    const Vec3 omega2_l = E.transpose() * U2 * omega2_u;
-
-    Mat4 k_EB = Mat4{{12, 6 * l0, -12, 6 * l0},
-                     {6 * l0, 4 * l0 * l0, -6 * l0, 2 * l0 * l0},
-                     {-12, -6 * l0, 12, -6 * l0},
-                     {6 * l0, 2 * l0 * l0, -6 * l0, 4 * l0 * l0}} *
-                youngs * I_2 / (l0 * l0 * l0);
-
-    const Scalar K = J; // cicular cross-section
-    const Mat2 k_tor = Mat2{{1, -1}, {-1, 1}} * G * K / l0;
-    const Mat2 k_x = Mat2{{1, -1}, {-1, 1}} * youngs * A / l0;
-
-    const Vec2 v_x = {v1_l.x(), v2_l.x()};
-    const Vec2 v_tor = {omega1_l.x(), omega2_l.x()};
-    const Vec4 v_y = {v1_l.y(), omega1_l.z(), v2_l.y(), omega2_l.z()};
-    const Vec4 v_z = {v1_l.z(), -omega1_l.y(), v2_l.z(), -omega2_l.y()};
-
-    const Vec2 f_x = beta * k_x * v_x;
-    const Vec2 f_tor = beta * k_tor * v_tor;
-    const Vec4 f_y = beta * k_EB * v_y;
-    k_EB *= (I_3 / I_2);
-    const Vec4 f_z = beta * k_EB * v_z;
-
-    const Vec3 f1_l = {f_x[0], f_y[0], f_z[0]};
-    const Vec3 m1_l = {f_tor[0], -f_z[1], f_y[1]};
-    const Vec3 f2_l = {f_x[1], f_y[2], f_z[2]};
-    const Vec3 m2_l = {f_tor[1], -f_z[3], f_y[3]};
-
-    Vec12 R_damp;
-    R_damp << E * f1_l, E * m1_l, E * f2_l, E * m2_l;
-    return R_damp;
-}
-static void calc_element_inner_forces(const Index ie, const vector<Vec3> &X, const vector<Vec3> &d_trans,
-                                      const vector<Quaternion> &d_rot, vector<Vec3> &R_int_trans,
-                                      vector<Vec3> &R_int_rot, const Scalar youngs, const Scalar G, const Scalar I_2,
-                                      const Scalar I_3, const Scalar A, const Scalar J, const Scalar beta_rayleigh,
-                                      const vector<Vec3> &v_trans, const vector<Vec3> &v_rot) {
-
-    // assert(i&e < X.size() - 1);
-    const Vec3 &X1 = X[ie];
-    const Vec3 &X2 = X[ie + 1];
-    const Vec3 &d1 = d_trans[ie];
-    const Vec3 &d2 = d_trans[ie + 1];
-
-    DEBUG_ONLY(cout << "X1 " << X1.transpose() << endl; cout << "X2 " << X2.transpose() << endl;);
-
-    DEBUG_ONLY(cout << "d1 " << d1.transpose() << endl; cout << "d2 " << d2.transpose() << endl;);
-    const Mat3 T = d_rot[ie].to_matrix();
-    const Vec3 &t1 = T.col(0);
-    const Vec3 &t2 = T.col(1);
-    const Vec3 &t3 = T.col(2);
-
-    const Mat3 U = d_rot[ie + 1].to_matrix();
-    const Vec3 &u1 = U.col(0);
-    const Vec3 &u2 = U.col(1);
-    const Vec3 &u3 = U.col(2);
-
-    DEBUG_ONLY(cout << "U from quat\n"
-                    << U << endl;
-
-               cout << "T from quat\n"
-                    << T << endl;);
-
-    // calculate the first unit vector
-    const Scalar l0 = (X2 - X1).norm();
-    const Scalar ln = (X2 + d2 - (X1 + d1)).norm();
-
-    Mat3 E;
-    E.col(0) = (X2 + d2 - (X1 + d1)) / ln;
-    const Vec3 &e1 = E.col(0);
-    assert(is_close(e1.norm(), 1.0));
-    DEBUG_ONLY(cout << "e1 = " << e1.transpose() << endl;);
-    // Calculate intermediate rotation between triads
-    const Mat3 DeltaR = U * T.transpose();
-    const Quaternion qDeltaR{DeltaR};
-    assert(!is_close(qDeltaR.q0, 0.0, 0.1));        // if q0 is 0, gamma_half becomes singular
-    const Vec3 gamma_half = qDeltaR.q / qDeltaR.q0; // eq 16.34 divided by 2
-
-    const Mat3 S = skew(gamma_half);
-    const Mat3 DeltaR_m = Mat3::Identity() + 1 / (1 + 0.25 * gamma_half.dot(gamma_half)) * (S + 0.5 * S * S);
-    assert(is_orthogonal(DeltaR_m));
-    const Mat3 R_ = DeltaR_m * T;
-    const Vec3 &r1 = R_.col(0);
-    const Vec3 &r2 = R_.col(1);
-    const Vec3 &r3 = R_.col(2);
-
-    // computing element unit vectors e2 and e3 by rotating the unit vector
-    // r1 on to e1.
-    E.col(1) = r2 - r2.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
-    E.col(2) = r3 - r3.dot(e1) / (1 + r1.dot(e1)) * (e1 + r1);
-    assert(is_orthogonal(E));
-    //    cout << "r1.dot.e1 " << e1.dot(r1) << endl;
-    // E.col(1) = r2 - 0.5 * r2.dot(e1) * (e1 + r1);
-    // E.col(2) = r3 - 0.5 * r3.dot(e1) * (e1 + r1);
-    const Vec3 &e2 = E.col(1);
-    const Vec3 &e3 = E.col(2);
-
-    // compute local displacements from global displacements.
-    // Taking u_l = ln-l0 is not recommended since subtracting two large
-    // numbers may be inaccurate with limited precision. Better to adopt
-    // ul = ln - l0 = (ln - l0)*(ln + l0)/(ln + l0) = (ln^2 - l0^2)/(ln + l0)
-
-    const Scalar ul = (ln * ln - l0 * l0) / (ln + l0);
-    assert(is_close(ul, ln - l0));
-
-    const Scalar theta_l1 = asin(0.5 * (-t3.dot(e2) + t2.dot(e3)));
-    Scalar theta_l2 = asin(0.5 * (-t2.dot(e1) + t1.dot(e2)));
-    const Scalar theta_l3 = asin(0.5 * (-t3.dot(e1) + t1.dot(e3)));
-    const Scalar theta_l4 = asin(0.5 * (-u3.dot(e2) + u2.dot(e3)));
-    const Scalar theta_l5 = asin(0.5 * (-u2.dot(e1) + u1.dot(e2)));
-    const Scalar theta_l6 = asin(0.5 * (-u3.dot(e1) + u1.dot(e3)));
-
-    DEBUG_ONLY(cout << "Delta torsion [deg] " << 180 / M_PI * (theta_l4 - theta_l1) << endl;
-               cout << "ul " << ul << endl; cout << "theta_l1 " << theta_l1 << endl;
-               cout << "theta_l2 " << theta_l2 << endl; cout << "theta_l3 " << theta_l3 << endl;
-               cout << "theta_l4 " << theta_l4 << endl; cout << "theta_l5 " << theta_l5 << endl;
-               cout << "theta_l6 " << theta_l6 << endl;);
-
-    // cout << "n_glob " << n_glob << endl;
-    // assert(theta_l1 == 0);
-    // assert(theta_l4 == 0);
-
-#define MAX_ANGLE 90 * M_PI / 180
-    assert(abs(theta_l1) < MAX_ANGLE);
-    assert(abs(theta_l2) < MAX_ANGLE);
-    assert(abs(theta_l3) < MAX_ANGLE);
-    assert(abs(theta_l4) < MAX_ANGLE);
-    assert(abs(theta_l5) < MAX_ANGLE);
-    assert(abs(theta_l6) < MAX_ANGLE);
-#undef MAX_ANGLE
-
-    using Mat7_12 = Eigen::Matrix<Scalar, 12, 7>;
-    Mat7_12 F_transpose; // Transpose of F where zero rows in F are excluded
-    constexpr Index f4 = 0;
-    constexpr Index f5 = 1;
-    constexpr Index f6 = 2;
-    constexpr Index f7 = 3;
-    constexpr Index f10 = 4;
-    constexpr Index f11 = 5;
-    constexpr Index f12 = 6;
-
-    // calculate F connecting infinitesimal global and local variable
-    // optimize zero rows later
-
-    // Vec12 f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12;
-    // f1.setConstant(0);
-    // f2.setConstant(0);
-    // f3.setConstant(0);
-    // f8.setConstant(0);
-    // f9.setConstant(0);
-
-    F_transpose.col(f7) << -e1, Vec3::Zero(), e1, Vec3::Zero(); //(17.19)
-
-    const Mat3 A_ = 1.0 / ln * (Mat3::Identity() - e1 * e1.transpose());
-    assert(is_close((A_ - A_.transpose()).norm(), 0.0));
-
-    Mat3 L1r2 = 0.5 * r2.dot(e1) * A_ + 0.5 * A_ * r2 * (e1 + r1).transpose();
-    Mat3 L1r3 = 0.5 * r3.dot(e1) * A_ + 0.5 * A_ * r3 * (e1 + r1).transpose();
-    Mat3 L2r2 = 0.5 * skew(r2) - 0.25 * r2.transpose() * e1 * skew(r1) - 0.25 * skew(r2) * e1 * (e1 + r1).transpose();
-    Mat3 L2r3 = 0.5 * skew(r3) - 0.25 * r3.transpose() * e1 * skew(r1) - 0.25 * skew(r3) * e1 * (e1 + r1).transpose();
-
-    Eigen::Matrix<Scalar, 12, 3> Lr2, Lr3;
-    Lr2 << L1r2, L2r2, -L1r2, L2r2;
-    Lr3 << L1r3, L2r3, -L1r3, L2r3;
-
-    Vec12 h1, h2, h3, h4, h5, h6;
-    h1 << Vec3::Zero(), -t3.cross(e2) + t2.cross(e3), Vec3::Zero(), Vec3::Zero();
-    h2 << A * t2, -t2.cross(e1) + t1.cross(e2), -A * t2, Vec3::Zero();
-    h3 << A * t3, -t3.cross(e1) + t1.cross(e3), -A * t3, Vec3::Zero();
-    h4 << Vec3::Zero(), Vec3::Zero(), Vec3::Zero(), -u3.cross(e2) + u2.cross(e3);
-    h5 << A * u2, Vec3::Zero(), -A * u2, -u2.cross(e1) + u1.cross(e2);
-    h6 << A * u3, Vec3::Zero(), -A * u3, -u3.cross(e1) + u1.cross(e3);
-
-    F_transpose.col(f4) = 1 / (2 * cos(theta_l1)) * (Lr3 * t2 - Lr2 * t3 + h1);
-    F_transpose.col(f5) = 1 / (2 * cos(theta_l2)) * (Lr2 * t1 + h2);
-    F_transpose.col(f6) = 1 / (2 * cos(theta_l3)) * (Lr3 * t1 + h3);
-    F_transpose.col(f10) = 1 / (2 * cos(theta_l4)) * (Lr3 * u2 - Lr2 * u3 + h4);
-    F_transpose.col(f11) =
-        1 / (2 * cos(theta_l5)) * (Lr2 * u1 + h5); // seems to be an error in the book for f11 and f12. it should be +
-                                                   // in front of h6 and h6 (it's + in the paper)
-    F_transpose.col(f12) = 1 / (2 * cos(theta_l6)) * (Lr3 * u1 + h6);
-
-    // cout << "F^T\n"
-    //      << F.transpose() << endl;
-
-    /*Calculate local internal forces based on linear 3D beam theory*/
-    const Vec7 R_int_e_l = calc_element_forces_local(l0, youngs, G, I_2, I_3, A, J, ul, theta_l1, theta_l2, theta_l3,
-                                                     theta_l4, theta_l5, theta_l6);
-
-    DEBUG_ONLY(cout << "R_int_e_l:\n" << R_int_e_l << endl;);
-
-    Vec12 R_int_e = F_transpose * R_int_e_l;
-
-    // const Scalar area = M_PI * (ro_e * ro_e - ri_e * ri_e);
-    // const Scalar Iy = M_PI / 4 * (ro_e * ro_e * ro_e * ro_e - ri_e * ri_e * ri_e * ri_e);
-    // const Scalar Iz = Iy;
-    // const Scalar It = 2 * Iy;
-    // Vec12 R_int_battini = BattiniBeam::global_internal_forces(ie, X, d_trans, d_rot, area, Iy, Iz, It, youngs, G);
-    // assert(R_int_battini.array().isFinite().all());
-
-    // R_int_e = R_int_battini;
-
-    assert(R_int_e.allFinite());
-    DEBUG_ONLY(cout << "R_int_e:\n" << R_int_e << endl;);
-
-    R_int_trans[ie] += R_int_e.segment(0, 3);
-    R_int_rot[ie] += R_int_e.segment(3, 3);
-    R_int_trans[ie + 1] += R_int_e.segment(6, 3);
-    R_int_rot[ie + 1] += R_int_e.segment(9, 3);
-    if (beta_rayleigh > 0) {
-        const Vec12 R_damp = calc_approx_rayleigh_beta_damping(beta_rayleigh, A, I_2, I_3, J, l0, youngs, G, E, U, T,
-                                                               v_trans[ie], v_trans[ie + 1], v_rot[ie], v_rot[ie + 1]);
-        DEBUG_ONLY(cout << "R_damp\n" << R_damp << endl;);
-        R_int_trans[ie] += R_damp.segment(0, 3);
-        R_int_rot[ie] += R_damp.segment(3, 3);
-        R_int_trans[ie + 1] += R_damp.segment(6, 3);
-        R_int_rot[ie + 1] += R_damp.segment(9, 3);
-    } else {
-        assert(beta_rayleigh == 0.0);
-    }
-
-    // DEBUG_ONLY(cout << "R_battini " << R_int_battini << endl;);
-    // Vec12 diff = R_int_e - R_int_battini;
-    // DEBUG_ONLY(cout << "diff \n"
-    //                 << diff << endl;);
-    // assert(diff.norm() < 1e-1);
-}
-
-static Vec7 calc_element_forces_local(const Scalar l0, const Scalar youngs, const Scalar G, const Scalar I_2,
-                                      const Scalar I_3, const Scalar A, const Scalar J, const Scalar ul,
-                                      const Scalar theta_1l, const Scalar theta_2l, const Scalar theta_3l,
-                                      const Scalar theta_4l, const Scalar theta_5l, const Scalar theta_6l) {
-
-    /*Normal force (F1)
-     [[F1], = A*E/l0[[ 1 -1],*[[0],
-      [F4]]          [-1  1]]  [ul]]
-    */
-    const Scalar F1 = A * youngs * (-ul) / l0;
-    const Scalar F4 = -F1;
-
-    /*--------------------------------------------------------------------
-    Torsion:
-    Used the theory from this link:
-    https://www.acs.psu.edu/drussell/Demos/Torsional/torsional.html
-    which is a simple wave equation. As long as circular bars are used
-    I_p = K and these terms disappear.
-    Governing equation is then:
-    I_p * rho * phitors_tt = G * K * phitors_xx
-    --------------------------------------------------------------------*/
-    Scalar M1 = G * J * (theta_1l - theta_4l) / l0;
-    Scalar M4 = -M1;
-
-    // M1*=-1;
-    // M4*=-1;
-
-    /*Bending: Euler bernoulli with only angle dofs:
-    k = EI/L [[4 2],
-              [2 4]]
-    */
-    const Scalar M2 = youngs * I_2 / l0 * (4 * theta_2l + 2 * theta_5l);
-    const Scalar M5 = youngs * I_2 / l0 * (2 * theta_2l + 4 * theta_5l);
-
-    const Scalar M3 = youngs * I_3 / l0 * (4 * theta_3l + 2 * theta_6l);
-    const Scalar M6 = youngs * I_3 / l0 * (2 * theta_3l + 4 * theta_6l);
-
-    // Vec12 R_int_l = {F1, 0, 0, M1, M2, M3, F4, 0, 0, M4, M5, M6};
-    const Vec7 R_int_e_l = {M1, M2, M3, F4, M4, M5, M6};
-    // cout << "fix\n";
-    // //Vec12 R_int_l = {0, 0, 0, 0, M2, M3, 0, 0, 0, 0, M5, M6};
-    // Vec12 R_int_l = {0, 0, 0, 0, M2, M3, 0, 0, 0, 0, M5, M6};
-    assert(R_int_e_l.allFinite());
-    return R_int_e_l;
 }
 
 // /*Bending. Euler Bernoulli is used, symmetrical cross section
@@ -550,19 +259,31 @@ static void calc_inner_forces(const Config &config, const Geometry &geometry, Be
     assert(i_first == 0 || i_first == 1);
     const Index N = geometry.get_N();
     const Index Ne = N - 1;
-
     const vector<Vec3> &X = geometry.get_X();
     const Scalar E = config.E;
     const Scalar G = config.get_G();
     const Scalar beta_rayleigh = config.beta_rayleigh;
-
-    Scalar A{}, I_2{}, I_3{}, J{};
+    const CorotationalBeamFormulation corotational_beam_formulation = config.corotational_beam_formulation;
 
 #pragma omp parallel for
     for (Index ie = i_first; ie < Ne; ie += 2) {
+        Vec12 R_int_e;
+        Scalar A{}, I_2{}, I_3{}, J{};
         geometry.calc_cross_section_properties(ie, A, I_2, I_3, J);
-        calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, beam.R_int_trans, beam.R_int_rot, E, G, I_2, I_3, A,
-                                  J, beta_rayleigh, beam.v_trans, beam.v_rot);
+        switch (corotational_beam_formulation) {
+        default:
+            assert(corotational_beam_formulation == CorotationalBeamFormulation::CRISFIELD);
+            R_int_e = BattiniBeam::global_internal_forces(ie, X, beam.d_trans, beam.d_rot, A, I_2, I_3, J, E, G);
+            break;
+        case CorotationalBeamFormulation::BATTINI:
+            R_int_e = CrisfieldBeam::calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, E, G, I_2, I_3, A, J,
+                                                               beta_rayleigh, beam.v_trans, beam.v_rot);
+            break;
+        }
+        beam.R_int_trans[ie] += R_int_e.segment(0, 3);
+        beam.R_int_rot[ie] += R_int_e.segment(3, 3);
+        beam.R_int_trans[ie + 1] += R_int_e.segment(6, 3);
+        beam.R_int_rot[ie + 1] += R_int_e.segment(9, 3);
     }
 
     /*------------------------------------------  # - R: [0,0,0, 0, 600000, 0]

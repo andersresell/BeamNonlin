@@ -11,7 +11,6 @@ struct Quaternion {
     Scalar norm_sqr() const;
     void normalize();
     Quaternion() : q0{0}, q{Vec3::Zero()} {}
-    Quaternion(const Mat3 &R) { from_matrix(R); }
     /*Create from pseudo vector*/
     Quaternion(const Vec3 &Theta);
 

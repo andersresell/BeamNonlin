@@ -189,6 +189,7 @@ class Plotter:
             disp_component = np.zeros(len(disp_all_times))
             for j,vec in enumerate(disp_all_times):
                 disp_component[j] = disp_all_times[j][i]
+            print("Max |"+c+"-displacement| = "+str(max(abs(disp_component))))
             plt.plot(t,disp_component)
             plt.xlabel("t [s]")
             plt.ylabel(c+"-displacement [m]")

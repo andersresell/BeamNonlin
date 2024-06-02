@@ -88,6 +88,10 @@ void InputParser::parse_yaml_config_options(Config &config) const {
     }
     config.borehole_included = read_optional_option<bool>(root_name_setup, "borehole_included", false);
 
+    config.corotational_beam_formulation = read_optional_enum_option<CorotationalBeamFormulation>(
+        root_name_setup, "corotational_beam_formulation", corotational_beam_formulation_from_string,
+        CorotationalBeamFormulation::CRISFIELD);
+
     config.gravity_enabled = read_required_option<bool>(root_name_setup, "gravity_enabled");
     if (config.gravity_enabled) {
         vector<Scalar> gravity_acc;
