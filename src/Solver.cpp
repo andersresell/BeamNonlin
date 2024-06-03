@@ -36,10 +36,11 @@ void solve(Config &config, Geometry &geometry, const Borehole &borehole) {
 
     printf("\n"
            "-----------------Starting simulation----------------\n"
+           "The problem has Ne = %i elements\n"
            "Running with dt = %f for %i timesteps,\n"
            "for a total time of %f seconds\n"
            "--------------------------------------------------------\n",
-           config.dt, n_steps, config.dt * n_steps);
+           geometry.get_Ne(), config.dt, n_steps, config.dt * n_steps);
 
     Timer timer;
 
@@ -203,11 +204,11 @@ static void check_energy_balance(const Config &config, const BeamSystem &beam) {
     const Scalar W_int = beam.W_int;
     const Scalar W_ext = beam.W_ext;
     const Scalar tol = config.energy_balance_tol;
-    const Scalar E_residal = KE + W_int - W_ext;
+    const Scalar E_residual = KE + W_int - W_ext;
 
-    if (abs(E_residal) > tol * max(KE, max(W_int, W_ext))) {
-        printf("Warning: Energy balance is not obeyed, energy residual = %f\n", E_residal);
-    } else if (isnan(E_residal)) {
+    if (abs(E_residual) > tol * max(KE, max(W_int, W_ext))) {
+        printf("Warning: Energy balance is not obeyed, energy residual = %f\n", E_residual);
+    } else if (isnan(E_residual)) {
         printf("Nan detected in energy residual\n");
     }
 }

@@ -7,7 +7,8 @@
 
 int main(int argc, char *argv[]) {
     // test_quat();
-    test_inner_forces();
+    // test_inner_forces();
+    // test_quaternion_performance_comparison(100000000, Vec3{1, 1, 1}, Vec3{1, 0, 0});
 
     try {
 
@@ -20,8 +21,6 @@ int main(int argc, char *argv[]) {
         }
 
         string input_file = argv[1];
-        // cout << "REMOVE!\n";
-        // input_file = "cantilever-small-problem-unstable.yml";
         Config config{};
 
         unique_ptr<Geometry> geometry;

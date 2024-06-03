@@ -263,22 +263,38 @@ static void calc_inner_forces(const Config &config, const Geometry &geometry, Be
     const Scalar E = config.E;
     const Scalar G = config.get_G();
     const Scalar beta_rayleigh = config.beta_rayleigh;
-    const CorotationalBeamFormulation corotational_beam_formulation = config.corotational_beam_formulation;
+    const CorotationalFormulation corotational_formulation = config.corotational_formulation;
 
 #pragma omp parallel for
     for (Index ie = i_first; ie < Ne; ie += 2) {
         Vec12 R_int_e;
         Scalar A{}, I_2{}, I_3{}, J{};
+
         geometry.calc_cross_section_properties(ie, A, I_2, I_3, J);
-        switch (corotational_beam_formulation) {
-        default:
-            assert(corotational_beam_formulation == CorotationalBeamFormulation::CRISFIELD);
-            R_int_e = BattiniBeam::global_internal_forces(ie, X, beam.d_trans, beam.d_rot, A, I_2, I_3, J, E, G);
-            break;
-        case CorotationalBeamFormulation::BATTINI:
+
+        // I_2 = M_PI * powi<4>(0.1) / 64;
+        // I_3 = I_2;
+
+        // Scalar h_2 = 0.1;
+        // Scalar h_3 = 0.05;
+
+        // I_2 = h_2 * powi<3>(h_3) / 12;
+        // I_3 = h_3 * powi<3>(h_2) / 12;
+
+        switch (corotational_formulation) {
+        default: {
+            assert(corotational_formulation == CorotationalFormulation::CRISFIELD);
             R_int_e = CrisfieldBeam::calc_element_inner_forces(ie, X, beam.d_trans, beam.d_rot, E, G, I_2, I_3, A, J,
                                                                beta_rayleigh, beam.v_trans, beam.v_rot);
             break;
+        }
+        case CorotationalFormulation::BATTINI: {
+            // have to flip these to get consistent behaviour compared to crisfield.. not exactly sure why
+            const Scalar Iy = I_3;
+            const Scalar Iz = I_2;
+            R_int_e = BattiniBeam::global_internal_forces(ie, X, beam.d_trans, beam.d_rot, A, Iy, Iz, J, E, G);
+            break;
+        }
         }
         beam.R_int_trans[ie] += R_int_e.segment(0, 3);
         beam.R_int_rot[ie] += R_int_e.segment(3, 3);

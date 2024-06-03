@@ -10,7 +10,7 @@ struct Quaternion {
     Scalar norm() const;
     Scalar norm_sqr() const;
     void normalize();
-    Quaternion() : q0{0}, q{Vec3::Zero()} {}
+    Quaternion() : q0{1}, q{Vec3::Zero()} {}
     /*Create from pseudo vector*/
     Quaternion(const Vec3 &Theta);
 

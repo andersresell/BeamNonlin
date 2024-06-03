@@ -108,8 +108,8 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry) : W_int{0
 
 void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &beam) {
     using namespace std;
-    Index n = config.n;
-    Index n_w = config.n_write;
+    const Index n = config.n;
+    const Index n_w = config.n_write;
     if (!config.save_csv || n % n_w != 0)
         return;
 
@@ -128,9 +128,9 @@ void save_csv(const Config &config, const Geometry &geometry, const BeamSystem &
         << config.check_energy_balance << "," << config.contact_enabled << "\n";
     /*Write energy*/
     if (config.check_energy_balance) {
-        Scalar E_tot = beam.KE + beam.W_int - beam.W_ext;
-        ost << "KE, W_int, W_ext, E_tot\n"
-            << beam.KE << ", " << beam.W_int << ", " << beam.W_ext << ", " << E_tot << "\n ";
+        const Scalar E_res = beam.KE + beam.W_int - beam.W_ext;
+        ost << "KE, W_int, W_ext, E_res\n"
+            << beam.KE << ", " << beam.W_int << ", " << beam.W_ext << ", " << E_res << "\n ";
     } else {
         ost << "\n\n";
     }

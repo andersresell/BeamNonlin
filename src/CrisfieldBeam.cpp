@@ -70,11 +70,18 @@ Vec7 calc_element_forces_local(const Scalar l0, const Scalar youngs, const Scala
     k = EI/L [[4 2],
               [2 4]]
     */
-    const Scalar M2 = youngs * I_2 / l0 * (4 * theta_2l + 2 * theta_5l);
-    const Scalar M5 = youngs * I_2 / l0 * (2 * theta_2l + 4 * theta_5l);
 
-    const Scalar M3 = youngs * I_3 / l0 * (4 * theta_3l + 2 * theta_6l);
-    const Scalar M6 = youngs * I_3 / l0 * (2 * theta_3l + 4 * theta_6l);
+    /*--------------------------------------------------------------------
+    WARNING: A BIT OF A WEIRD CONVENTION IS USED IN THE CRISFIELD FORMULATION
+    FOR INSTANCE THETA_L2 MEANS THE LOCAL ROTATION AROUND THE LOCAL Z-AXIS,
+    FOR THIS REASON THE MOMENT OF INERTIA AROUND Z I_3 IS MULTIPLIED WITH
+    THETA_L2 ETC.
+    --------------------------------------------------------------------*/
+    const Scalar M2 = youngs * I_3 / l0 * (4 * theta_2l + 2 * theta_5l);
+    const Scalar M5 = youngs * I_3 / l0 * (2 * theta_2l + 4 * theta_5l);
+
+    const Scalar M3 = youngs * I_2 / l0 * (4 * theta_3l + 2 * theta_6l);
+    const Scalar M6 = youngs * I_2 / l0 * (2 * theta_3l + 4 * theta_6l);
 
     // Vec12 R_int_l = {F1, 0, 0, M1, M2, M3, F4, 0, 0, M4, M5, M6};
     const Vec7 R_int_e_l = {M1, M2, M3, F4, M4, M5, M6};

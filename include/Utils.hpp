@@ -32,12 +32,12 @@ enum class CrossSectiontype {
 };
 const map<string, CrossSectiontype> cross_section_type_from_string{{"pipe", CrossSectiontype::PIPE},
                                                                    {"rectangle", CrossSectiontype::RECANGLE}};
-enum class CorotationalBeamFormulation {
+enum class CorotationalFormulation {
     CRISFIELD,
     BATTINI
 };
-const map<string, CorotationalBeamFormulation> corotational_beam_formulation_from_string{
-    {"crisfield", CorotationalBeamFormulation::CRISFIELD}, {"battini", CorotationalBeamFormulation::BATTINI}};
+const map<string, CorotationalFormulation> corotational_formulation_from_string{
+    {"crisfield", CorotationalFormulation::CRISFIELD}, {"battini", CorotationalFormulation::BATTINI}};
 
 struct PointLoad {
     Vec3 load_trans;

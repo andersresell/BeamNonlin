@@ -30,7 +30,7 @@ ifeq ($(BUILD_TYPE), debug)
 	CXX_FLAGS += -I$(YAML_CPP_INSTALL_DIR)/include -L$(YAML_CPP_INSTALL_DIR)/lib 
 else ifeq ($(BUILD_TYPE), release)
 	BUILD_DIR = $(BUILD_DIR_RELEASE)
-	CXX_FLAGS += -DNDEBUG  -O3 #-march=native -flto
+	CXX_FLAGS += -DNDEBUG  -O3 -march=native #-flto
 else
     $(error Unsupported build type specified: $(BUILD_TYPE). Valid types are "debug" and "release")
 endif

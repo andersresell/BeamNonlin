@@ -97,8 +97,8 @@ class Plotter:
         KE = data[0]
         W_int = data[1]
         W_ext = data[2]
-        E_tot = data[3]
-        return KE, W_int,W_ext,E_tot
+        E_res = data[3]
+        return KE, W_int,W_ext,E_res
             
     def read_header_transient(self,n):
         header = self.read_header(n)
@@ -147,7 +147,8 @@ class Plotter:
             # plt.title(title)
             if self.contact_enabled: plot_hole(self.x_hole,self.r_hole,ax)
            
-            plt.title("n="+str(n)+", t="+str(self.t)+", dt="+str(self.dt))
+            plt.title("n = %d, t = %.3f [s], dt = %.6f [s]" % (n,self.t,self.dt))
+            
             
             axlen = 1.2*self.L0
             #axlen = 0.7*self.L0
@@ -165,35 +166,42 @@ class Plotter:
             
         if self.write_gif: self.create_gif()
     
+    def get_end_node_disp_transient(self):
+        
+        n_vals = (self.n_steps - 1) // self.n_write + 1
+      
+        t = np.zeros((n_vals,))
+        u_tip = np.zeros((n_vals,3))
+        i = 0
+        for n in range(0,self.n_steps,self.n_write):
+            if n % self.n_write != 0: continue
+            self.read_header_transient(n)
+            t[i] = self.t
+            
+            data = self.read_data(n)
+            disp_all_nodes = get_vector_components_from_data(data,"u")
+            u_tip[i,:] = disp_all_nodes[-1,:]
+            i += 1
+        assert n_vals==i
+        return t,u_tip
+            
+    
     def plot_end_node_transient(self,components):
         
         assert len(components)==len(set(components))
         for c in components:
             assert c=="x" or c=="y" or c=="z" 
-        
-        times = []
-        disp_all_times = []
-        for n in range(self.n_steps):
-  
-            if n % self.n_write != 0: continue
-            self.read_header_transient(n)
-            times.append(self.t)
             
-            data = self.read_data(n)
-            disp_all_nodes = get_vector_components_from_data(data,"u")
-            disp_all_times.append(disp_all_nodes[-1,:])
-            
-        t = np.array(times)
+        t,u_tip = self.get_end_node_disp_transient()
+
         for i,c in enumerate(components):
             plt.figure()
-            disp_component = np.zeros(len(disp_all_times))
-            for j,vec in enumerate(disp_all_times):
-                disp_component[j] = disp_all_times[j][i]
-            print("Max |"+c+"-displacement| = "+str(max(abs(disp_component))))
-            plt.plot(t,disp_component)
+            print("Max |"+c+"-displacement| = "+str(max(abs(u_tip[:,i]))))
+            plt.plot(t,u_tip[:,i])
+            plt.grid()
+            plt.tight_layout()
             plt.xlabel("t [s]")
             plt.ylabel(c+"-displacement [m]")
-            
             
     def animate_vertical_disp(self):
         plt.figure()
@@ -279,31 +287,31 @@ class Plotter:
         KE = []
         W_int = []
         W_ext = []
-        E_tot = []
+        E_res = []
         for n in range(self.n_steps):
             if n % self.n_write != 0: continue
             self.read_header_transient(n)
             t.append(self.t)
-            KE_, W_int_,W_ext_, E_tot_ = self.read_energy_balance(n)
+            KE_, W_int_,W_ext_, E_res_ = self.read_energy_balance(n)
             KE.append(KE_)
             W_int.append(W_int_)
             W_ext.append(W_ext_)
-            E_tot.append(E_tot_)
+            E_res.append(E_res_)
         plt.figure()
         t = np.array(t)
         KE = np.array(KE)
         W_int = np.array(W_int)
         W_ext = np.array(W_ext)
-        E_tot = np.array(E_tot)
-        plt.plot(t,KE,label="KE")
-        plt.plot(t,W_int,label="W_int")
-        plt.plot(t,W_ext,label="W_ext")
-        plt.plot(t,E_tot,label="E_tot")
+        E_res = np.array(E_res)
+        plt.plot(t,KE,label=r"$K$")
+        plt.plot(t,W_int,label=r"$W^{int}$")
+        plt.plot(t,W_ext,label=r"$W^{ext}$")
+        plt.plot(t,E_res,label=r"$E^{res}$")
         #lim=20000
         #plt.ylim(0,lim)
         #plt.ylim(-lim/2,lim/2)
         plt.legend()
-        plt.xlabel("$t$")
+        plt.xlabel("$t$ [s]")
         plt.ylabel("Energy $[J]$")
         
         

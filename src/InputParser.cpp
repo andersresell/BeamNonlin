@@ -88,9 +88,9 @@ void InputParser::parse_yaml_config_options(Config &config) const {
     }
     config.borehole_included = read_optional_option<bool>(root_name_setup, "borehole_included", false);
 
-    config.corotational_beam_formulation = read_optional_enum_option<CorotationalBeamFormulation>(
-        root_name_setup, "corotational_beam_formulation", corotational_beam_formulation_from_string,
-        CorotationalBeamFormulation::CRISFIELD);
+    config.corotational_formulation = read_optional_enum_option<CorotationalFormulation>(
+        root_name_setup, "corotational_formulation", corotational_formulation_from_string,
+        CorotationalFormulation::CRISFIELD);
 
     config.gravity_enabled = read_required_option<bool>(root_name_setup, "gravity_enabled");
     if (config.gravity_enabled) {
@@ -179,12 +179,19 @@ void InputParser::parse_bcs_and_loads(const Geometry &geometry, Config &config) 
                     }
                     config.R_point_static.push_back(PointLoad{R_point_tmp, rel_loc, geometry.get_X()});
                 } else {
-                    throw runtime_error("Point load incorrectly specified\n");
+                    string err_msg =
+                        "Wrong specification of point load. Usage:\n- R: [fx, fy, fz, mx, my, mz]\n  rel_loc: "
+                        "<val between 0 and 1>\n";
+                    if (!point_load["R"])
+                        err_msg += "\'R\' setting is missing\n";
+                    if (!point_load["rel_loc"])
+                        err_msg += "\'rel_loc\' setting is missing\n";
+                    throw runtime_error(err_msg);
                 }
             }
         }
     } catch (exception &e) {
-        throw runtime_error("Error parsing loads:\n" + string(e.what()));
+        throw runtime_error("Error parsing \'" + root_name_loads + "\'\n" + string(e.what()));
     }
 }
 

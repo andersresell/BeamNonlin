@@ -23,7 +23,7 @@ struct Config {
     Scalar alpha_rayleigh;
     Scalar beta_rayleigh;
     bool borehole_included;
-    CorotationalBeamFormulation corotational_beam_formulation;
+    CorotationalFormulation corotational_formulation;
 
     bool gravity_enabled = true;
     Vec3 gravity_acc;

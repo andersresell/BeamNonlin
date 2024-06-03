@@ -2,6 +2,9 @@
 #include "../include/BattiniBeam.hpp"
 #include "../include/CrisfieldBeam.hpp"
 #include "../include/Numerics.hpp"
+#include "../include/Utils.hpp"
+
+#include <eigen3/Eigen/Dense>
 
 void test_inner_forces() {
     printf("Testing inner forces\n");
@@ -22,7 +25,7 @@ void test_inner_forces() {
 
     printf("Case: clamped in both ends + vertical disp\n");
     // Clamped in both end and vertical disp
-    Scalar Delta_z = -0.01;
+    Scalar Delta_z = -0.1;
     vector<Vec3> d_trans;
     d_trans.push_back(Vec3{0, 0, 0});
     d_trans.push_back(Vec3{0, 0, Delta_z});
@@ -73,46 +76,6 @@ void test_inner_forces() {
 
 void test_quat() {
     cout << "test quat\n";
-    // Scalar thetaz = 15 * M_PI / 180;
-    // Scalar thetay = 5 * M_PI / 180;
-    // Scalar thetax;
-
-    // Scalar c = cos(thetaz);
-    // Scalar s = sin(thetaz);
-
-    // Mat3 Rx, Ry, Rz;
-    // Rz << c, -s, 0,
-    //     s, c, 0,
-    //     0, 0, 1;
-    // c = cos(thetay);
-    // s = sin(thetay);
-    // Ry << c, 0, -s,
-    //     0, 1, 0,
-    //     s, 0, c;
-
-    // // Ry = Mat3::Identity();
-
-    // Mat3 U = Rz * Ry;
-
-    // assert(is_orthogonal(U));
-
-    // // cout << "U before \n"
-    // //      << U << endl;
-    // Quaternion q;
-    // // cout << "q first \n"
-    // //      << q << endl;
-    // q.from_matrix(U);
-
-    // // cout << "q second \n"
-    // //      << q << endl;
-    // // cout << "q norm " << q.norm() << endl;
-    // U = q.to_matrix();
-
-    // cout << "q third \n"
-    //      << q << endl;
-
-    // cout << "U after \n"
-    //      << U << endl;
     Index n_tests = 100;
     for (Index i = 0; i < n_tests; i++) {
         Vec3 Theta = Vec3::Random() * 10;
@@ -181,6 +144,48 @@ void test_quat() {
             cout << "vnq " << vnq << endl << "vnr " << vnr << endl;
         }
     }
+
+    exit(0);
+}
+
+static Vec3 test_vector_rotation_homemade_quaternion(Index n_iter, Vec3 theta_initial, Vec3 v) {
+    Quaternion q{theta_initial};
+    Timer timer;
+    timer.start_counter();
+    for (Index i = 0; i < n_iter; i++) {
+        v = q.rotate_vector(v);
+    }
+    timer.stop_counter();
+    timer.print_elapsed_time();
+    return v;
+}
+
+static Vec3 test_vector_rotation_eigen_quaternion(Index n_iter, Vec3 theta_initial, Vec3 v) {
+
+    using EQuaternion = Eigen::Quaternion<Scalar>;
+    Eigen::AngleAxisd pseudovector{theta_initial.norm(), theta_initial.normalized()};
+    EQuaternion eq{pseudovector};
+
+    Timer timer;
+    timer.start_counter();
+    for (Index i = 0; i < n_iter; i++) {
+        v = eq * v;
+    }
+    timer.stop_counter();
+    timer.print_elapsed_time();
+    return v;
+}
+
+void test_quaternion_performance_comparison(Index n_iter, Vec3 theta_initial, Vec3 v0) {
+
+    printf("Testing vector rotation homemade quaternion\n");
+    Vec3 v1 = test_vector_rotation_homemade_quaternion(n_iter, theta_initial, v0);
+
+    printf("Testing vector rotation eigen quaternion\n");
+    Vec3 v2 = test_vector_rotation_eigen_quaternion(n_iter, theta_initial, v0);
+
+    cout << "v1 \n" << v1 << "\nv2 \n" << v2 << endl;
+    assert(v1.isApprox(v2, 0.001));
 
     exit(0);
 }
