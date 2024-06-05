@@ -41,4 +41,4 @@ testing/*
 !testing/*.yml
 *.png
 !beam-showcase.png
-!BEAM-showcase.gif
+!beam-showcase.gif
