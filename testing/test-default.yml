@@ -2,7 +2,7 @@ setup:
   CFL: 0.5
   
   n_max: 10000000
-  t_max: 3
+  t_max: 1
   n_write: 100
   n_threads: 1
   save_csv : true
