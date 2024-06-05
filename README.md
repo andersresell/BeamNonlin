@@ -5,7 +5,7 @@ An explicit 3D beam solver based on a co-rotational formulation. Since the formu
 ![example](https://raw.githubusercontent.com/andersresell/BeamNonlin/main/beam-showcase.gif)
 
 Dependencies:
-- Linux enviroment
+Linux enviroment with
 - build-essential
 - eigen
 - yaml-cpp
