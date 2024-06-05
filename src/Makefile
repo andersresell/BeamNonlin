@@ -14,8 +14,8 @@
 BUILD_TYPE ?= release
 SINGLE_PRECISION ?= 0
 
-BUILD_DIR_DEBUG = $(BeamNonlinHome)/build_debug
-BUILD_DIR_RELEASE = $(BeamNonlinHome)/build_release
+BUILD_DIR_DEBUG = $(BeamNonlinHome)/build-debug
+BUILD_DIR_RELEASE = $(BeamNonlinHome)/build-release
 
 
 CXX_FLAGS_COMMON = -Wall -Wno-unused-function -fmax-errors=1 -lyaml-cpp -fopenmp 

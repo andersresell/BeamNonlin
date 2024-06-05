@@ -1,5 +1,4 @@
 #!/bin/bash
 
 cd testing
-input=cantilever.yml
-../launch.sh -f=cantilever.yml --plot
+../launch.sh -f=test-default.yml --plot

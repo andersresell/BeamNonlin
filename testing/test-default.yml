@@ -1,9 +1,9 @@
 setup:
   CFL: 0.5
-  #n_max: 100000000
+  
   n_max: 10000000
-  t_max: 20
-  n_write: 10000
+  t_max: 3
+  n_write: 100
   n_threads: 1
   save_csv : true
   gravity_enabled: false
@@ -23,12 +23,8 @@ bc:
 loads: 
   point_loads_rel_to_base_orientation: true
   point_loads:
-  #- R: [0,0,0, 0, 616850.275068085,0]
-                   
-   # rel_loc: 1
-  #  - R: [0, 0, 0, 0,0, 0]
-  #    rel_loc: 1
-    
+  - R: [0,0,0, 0, 616850.275068085,0]
+    rel_loc: 1
 
 properties:
   E: 210.0e+09
@@ -37,12 +33,12 @@ properties:
  
 geometry:
   L0: 10
-  N: 2
+  N: 11
   D_outer_uniform: 0.1
   D_inner_uniform: 0
-  #cross_section_type: rectangle
-  #h2_uniform: 0.3
-  #h3_uniform: 0.25
+  # cross_section_type: rectangle
+  # h2_uniform: 0.3
+  # h3_uniform: 0.25
 
 
 

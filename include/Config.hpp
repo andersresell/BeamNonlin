@@ -8,7 +8,6 @@ struct Config {
     size_t n_max;
     Scalar t_max;
     Scalar CFL;
-    bool save_csv = true;
     // bool user_defined_force;
     Index n_write;
     string base_dir;
@@ -16,16 +15,11 @@ struct Config {
     BC_Case bc_case = BC_Case::NONE;
     Quaternion bc_orientation_base;
     vector<PointLoad> R_point_static;
-    bool point_loads_rel_to_base_orientation;
-    bool check_energy_balance;
     Scalar energy_balance_tol;
-    bool rayleigh_damping_enabled;
     Scalar alpha_rayleigh;
     Scalar beta_rayleigh;
-    bool borehole_included;
     CorotationalFormulation corotational_formulation;
 
-    bool gravity_enabled = true;
     Vec3 gravity_acc;
     Index n_threads;
 
@@ -36,13 +30,19 @@ struct Config {
     Scalar E;
     Scalar rho;
 
-    /*Contact*/
-    bool contact_enabled;
     Scalar mu_static;
     Scalar mu_kinetic;
     Scalar coloumb_friction_decay;
     Scalar K_contact;
     Scalar C_contact;
+
+    bool save_csv = true;
+    bool point_loads_rel_to_base_orientation;
+    bool check_energy_balance;
+    bool rayleigh_damping_enabled;
+    bool borehole_included;
+    bool gravity_enabled = true;
+    bool contact_enabled;
 
     Scalar get_G() const { return E / (2 * (1 + nu)); }
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-clear
+#clear
 
 run_plotter=0
 input_file_specififed=0
@@ -37,9 +37,9 @@ fi
 source $BeamNonlinHome/build.sh 
 
 if [ "$BUILD_TYPE" == "release" ]; then
-    builddir=$BeamNonlinHome/build_release
+    builddir=$BeamNonlinHome/build-release
 elif [ "$BUILD_TYPE" == "debug" ]; then
-    builddir=$BeamNonlinHome/build_debug
+    builddir=$BeamNonlinHome/build-debug
 else
     echo "error: invalid build type"
     exit 1

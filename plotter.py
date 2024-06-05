@@ -74,7 +74,7 @@ class Plotter:
         self.contact_enabled = bool(int(header[6]))
         self.write_gif=write_gif
         if write_gif:
-            self.output_tmp = "output_tmp"
+            self.output_tmp = "output-tmp"
             if os.path.exists(self.output_tmp) is False:
                 os.makedirs(self.output_tmp)
         if self.N>MAX_NODES:
