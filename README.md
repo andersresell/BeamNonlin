@@ -6,7 +6,7 @@ A 3D explicit corotational beam element has been implemented. Since the formulat
 Dependencies:
 - Linux enviroment
 - build-essential
-- Eigen
+- eigen
 - yaml-cpp
 - To plot: python with numpy and matplotlib
 
