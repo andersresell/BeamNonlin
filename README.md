@@ -7,7 +7,7 @@ An explicit 3D beam solver based on a co-rotational formulation. Since the formu
 __How to build and test the code__
 
 You need a linux enviroment with:
-- build-essential
+- build-essential (g++ and make)
 - eigen
 - yaml-cpp
 - To plot: python with numpy and matplotlib
