@@ -15,3 +15,5 @@ You need a linux enviroment with:
 To test the code, clone it and add: export BeamNonlinHome=/path/to/source/directory to ~/.bashrc
 The project is built and a default test is ran by running ./run-test.sh from the source directory.
 The code can be used from a different directory by running $BeamNonlinHome/launch.sh --file=<input-file.yml> where input-file.yml is an input file specifying the problem.
+
+I haven't actually tried to run it on a machine other than my own, so I won't give any guarantees that the instructions provided here works without any problems.
