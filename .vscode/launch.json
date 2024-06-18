@@ -11,9 +11,9 @@
             "name": "Build and debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build_debug/BeamNonlin",
+            "program": "${workspaceFolder}/build-debug/BeamNonlin",
             "args": [
-                "cantilever.yml"
+                "cantilever-buggy.yml"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/testing",

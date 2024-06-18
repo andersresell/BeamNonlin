@@ -121,10 +121,10 @@ Vec7 local_deformations(const Vec3 &x1, const Vec3 &x2, const Vec3 &X1, const Ve
 
     assert(abs(arg1) < 1.0 + SMALL_SCALAR);
     assert(abs(arg2) < 1.0 + SMALL_SCALAR);
-    arg1 = min(1.0, arg1);
-    arg1 = max(-1.0, arg1);
-    arg2 = min(1.0, arg2);
-    arg2 = max(-1.0, arg2);
+    arg1 = min((Scalar)1.0, arg1);
+    arg1 = max((Scalar)-1.0, arg1);
+    arg2 = min((Scalar)1.0, arg2);
+    arg2 = max((Scalar)-1.0, arg2);
 
     Scalar local_rot_norm_node_1 = acos(arg1);
     Scalar local_rot_norm_node_2 = acos(arg2);

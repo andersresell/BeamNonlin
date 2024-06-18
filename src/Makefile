@@ -19,6 +19,9 @@ BUILD_DIR_RELEASE = $(BeamNonlinHome)/build-release
 
 
 CXX_FLAGS_COMMON = -Wall -Wno-unused-function -fmax-errors=1 -lyaml-cpp -fopenmp 
+ifeq ($(SINGLE_PRECISION), 1)
+	CXX_FLAGS_COMMON += -DSINGLE_PRECISION
+endif
 #CXX_FLAGS_COMMON += -fno-math-errno -fno-trapping-math #use these? have heard it's possibly unsafe to use -ffast-math
 CXX_FLAGS = $(CXX_FLAGS_COMMON)
 

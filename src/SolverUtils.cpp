@@ -86,6 +86,13 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry) : W_int{0
                                                     // moment of inertia as Belytscho does Je22 *= 1;
         const Scalar Je33 = Je22;
 
+        // cout << "REMOVE THIS!\n";
+        // Scalar factor = 100;
+        // if (Je11 < min(Je22, Je33) / factor) {
+        //     cout << "Je11/min(Je22,Je33)=" << Je11 / min(Je22, Je33) << endl;
+        //     Je11 = min(Je22, Je33) / factor;
+        // }
+
         // Not the exact same procedure as proposed in Crisfield.
         // Seems like the moment of inertia is 1/12*m*l² there for y and z, i.e a thin rod
 
@@ -95,9 +102,15 @@ BeamSystem::BeamSystem(const Config &config, const Geometry &geometry) : W_int{0
         the diagonal inertia matrix for each node. Since the reference configuration used now already
         leads to diagonal system, this wont make any difference.*/
         const Vec3 Je = {Je11, Je22, Je33};
+        cout << "Je\n" << Je << endl;
         J_u[ie] += 0.5 * Je;
         J_u[ie + 1] += 0.5 * Je;
     }
+    Scalar kappa11_max = 0;
+    for (const Vec3 &J : J_u) {
+        kappa11_max = max(kappa11_max, max(J.y() / J.x(), J.z() / J.x()));
+    }
+    printf("Highest ratio of J11/Jii (i!=1) is %f\n", kappa11_max);
 
     // /*Inverting lumped mass*/
     // for (Index i = 0; i < N; i++)

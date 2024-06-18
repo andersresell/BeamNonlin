@@ -37,7 +37,10 @@ void InputParser::create_geometry(unique_ptr<Geometry> &geometry) const {
     string root_name = "geometry";
     try {
         Scalar L0 = read_required_option<Scalar>(root_name, "L0");
-        Scalar N = read_required_option<Scalar>(root_name, "N");
+        int N = read_required_option<int>(root_name, "N");
+        if (N < 2) {
+            throw runtime_error("N (number of nodes) must >= 2, but it's set to " + to_string(N));
+        }
 
         CrossSectiontype cross_section_type = read_optional_enum_option<CrossSectiontype>(
             root_name, "cross_section_type", cross_section_type_from_string, CrossSectiontype::PIPE);

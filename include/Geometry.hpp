@@ -13,7 +13,7 @@ class Geometry {
     CrossSectiontype cross_section_type;
 
   public:
-    Geometry(Scalar L0, Scalar N, Scalar D_outer_uniform, Scalar D_inner_uniform, Scalar h2_uniform, Scalar h3_uniform,
+    Geometry(Scalar L0, Index N, Scalar D_outer_uniform, Scalar D_inner_uniform, Scalar h2_uniform, Scalar h3_uniform,
              CrossSectiontype cross_section_type);
 
     const vector<Vec3> &get_X() const { return X; }

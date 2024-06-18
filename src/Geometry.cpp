@@ -1,6 +1,6 @@
 #include "../include/Geometry.hpp"
 
-Geometry::Geometry(Scalar L0, Scalar N, Scalar D_outer_uniform, Scalar D_inner_uniform, Scalar h2_uniform,
+Geometry::Geometry(Scalar L0, Index N, Scalar D_outer_uniform, Scalar D_inner_uniform, Scalar h2_uniform,
                    Scalar h3_uniform, CrossSectiontype cross_section_type)
     : cross_section_type{cross_section_type} {
     assert(N > 1);

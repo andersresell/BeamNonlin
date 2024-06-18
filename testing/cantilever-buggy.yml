@@ -1,0 +1,52 @@
+setup:
+  CFL: 0.8
+  #n_max: 100000000
+  n_max: 10000000
+  t_max: 3
+  n_write: 100
+  n_threads: 1
+  save_csv : true
+  gravity_enabled: true
+  gravity_acc: [0, 0,0]
+  check_energy_balance: true
+  rayleigh_damping_enabled: false
+  alpha_rayleigh: 0.5
+  beta_rayleigh: 0 # 3e-6
+  borehole_included: false
+  corotational_formulation: crisfield
+
+ # user_defined_force: true
+
+bc: 
+  case: cantilever
+  #orientation_base_euler_angles_xyz_deg: [0,0, 0]
+  orientation_base_euler_angles_xyz_deg: [0,0, 45]
+  
+loads: 
+  point_loads_rel_to_base_orientation: true
+  point_loads:
+  - R: [0,0,0, 0, -2.024039965,0]                   
+    rel_loc: 1
+
+    
+
+properties:
+  E: 210.0e+09
+  nu: 0.3
+  rho: 7850
+ 
+geometry:
+  L0: 10
+  N: 2
+  D_outer_uniform: 5e-3
+  D_inner_uniform: 0.0
+  cross_section_type: pipe
+  #h2_uniform: 0.3
+  #h3_uniform: 0.25
+  #h2_uniform: 0.03
+  #h3_uniform: 0.025
+
+
+
+  
+

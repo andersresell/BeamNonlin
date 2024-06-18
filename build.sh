@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #not sure why it isnt sufficient to specify this in .bashrc, when using it in vscode tasks
-export BeamNonlinHome="/home/anders/projects/BeamNonlin" 
+#export BeamNonlinHome="/home/anders/projects/BeamNonlin" 
 
 rm -f $BeamNonlinHome/build-debug/BeamNonlin
 rm -f $BeamNonlinHome/build-release/BeamNonlin

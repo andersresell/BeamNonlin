@@ -163,7 +163,7 @@ static Vec3 test_vector_rotation_homemade_quaternion(Index n_iter, Vec3 theta_in
 static Vec3 test_vector_rotation_eigen_quaternion(Index n_iter, Vec3 theta_initial, Vec3 v) {
 
     using EQuaternion = Eigen::Quaternion<Scalar>;
-    Eigen::AngleAxisd pseudovector{theta_initial.norm(), theta_initial.normalized()};
+    Eigen::AngleAxis<Scalar> pseudovector{theta_initial.norm(), theta_initial.normalized()};
     EQuaternion eq{pseudovector};
 
     Timer timer;

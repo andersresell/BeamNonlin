@@ -69,7 +69,6 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     }
 
     // rotations: Simo and Wong algorithm
-
 #pragma omp parallel for
     for (Index i = 0; i < N; i++) {
         Quaternion &q = d_rot[i];
@@ -115,6 +114,7 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
 
 #pragma omp parallel for
     for (Index i = 0; i < N; i++) {
+
         const Mat3 &J = J_u[i].asDiagonal();
         const Vec3 &L_n = L_rot[i];
         Vec3 &omega_u = v_rot[i];
@@ -123,10 +123,12 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
         Vec3 &m = m_rot[i]; // Moment at t_{n+1/2}
         const Vec3 m_np = R_ext_rot[i] - R_int_rot[i];
         /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
-        Vec3 m_half = 0.5 * (m + m_np);
+        const Vec3 m_half = 0.5 * (m + m_np);
         m = m_np; // Update moment
         const Vec3 omega_u_old = omega_u;
+
         omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m_half);
+
 #ifndef NDEBUG
         const Vec3 L_np = U_np * J * omega_u;
         const Vec3 res = L_np - L_n - dt * m_half;
@@ -142,6 +144,169 @@ void step_explicit(Config &config, const Geometry &geometry, const Borehole &bor
     if (check_energy_balance) {
         kinetic_energy_update(N, M, J_u, v_trans, v_rot, KE);
     }
+    // if (n_glob >= 10) {
+    //     cout << "exit ";
+    //     exit(0);
+    // }
+}
+
+void step_explicit_debug(Config &config, const Geometry &geometry, const Borehole &borehole, BeamSystem &beam) {
+    const Scalar dt = config.dt;
+    const Index N = geometry.get_N();
+    vector<Vec3> &d_trans = beam.d_trans;
+    vector<Quaternion> &d_rot = beam.d_rot;
+    vector<Vec3> &v_trans = beam.v_trans;
+    vector<Vec3> &v_rot = beam.v_rot;
+    vector<Vec3> &a_trans = beam.a_trans;
+    vector<Vec3> &a_rot = beam.a_rot;
+    vector<Vec3> &L_rot = beam.L_rot;
+    vector<Vec3> &m_rot = beam.m_rot;
+    vector<Vec3> &R_int_trans = beam.R_int_trans;
+    vector<Vec3> &R_int_rot = beam.R_int_rot;
+    vector<Vec3> &R_ext_trans = beam.R_ext_trans;
+    vector<Vec3> &R_ext_rot = beam.R_ext_rot;
+    const vector<Scalar> &M = beam.M;
+    const vector<Vec3> &J_u = beam.J_u;
+    const bool check_energy_balance = config.check_energy_balance;
+    Scalar &W_int = beam.W_int;
+    Scalar &W_ext = beam.W_ext;
+    Scalar &KE = beam.KE;
+    vector<Vec3> &delta_d_trans = beam.delta_d_trans; /*Only used if energy balance is checked*/
+    vector<Vec3> &delta_d_rot = beam.delta_d_rot;     /*Only used if energy balance is checked*/
+    if (check_energy_balance) {
+        assert(delta_d_trans.size() == N && delta_d_rot.size() == N);
+    } else {
+        assert(delta_d_trans.size() == 0 && delta_d_rot.size() == 0);
+    }
+
+    cout << "\n------n=" << n_glob << endl;
+
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++) {
+        const Vec3 delta_d = dt * v_trans[i] + 0.5 * dt * dt * a_trans[i];
+        d_trans[i] += delta_d;
+        if (check_energy_balance) {
+            delta_d_trans[i] = delta_d;
+        }
+    }
+
+    // rotations: Simo and Wong algorithm
+
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++) {
+        Quaternion &q = d_rot[i];
+        const Mat3 &J = J_u[i].asDiagonal();
+        Vec3 &omega_u = v_rot[i];
+        Vec3 &alpha_u = a_rot[i];
+        L_rot[i] =
+            q.rotate_vector(J * omega_u); // Storing angular momentum L = U*J_u*omega_u at t_n for velocity update
+        const Vec3 theta_u = dt * omega_u + 0.5 * dt * dt * alpha_u;
+        q.exponential_map_body_frame(theta_u); // Update the rotation as U_{n+1} = U_n * exp(S(theta_u))
+
+        if (check_energy_balance) {
+            delta_d_rot[i] = q.rotate_vector(theta_u); // delta_d is stored in inertial frame
+        }
+        // if (i == 1) {
+        //     cout << "J\n" << J << endl << "omega_u\n" << omega_u << endl << "alpha_u\n" << alpha_u << endl;
+        // }
+    }
+
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config, geometry, beam);
+
+    if (check_energy_balance) {
+        work_update_partial(N, delta_d_trans, delta_d_rot, R_int_trans, R_int_rot, R_ext_trans, R_ext_rot, W_ext,
+                            W_int);
+    }
+
+    /*Update internal and external forces*/
+    calc_forces(config, geometry, borehole, beam);
+
+    if (check_energy_balance) {
+        work_update_partial(N, delta_d_trans, delta_d_rot, R_int_trans, R_int_rot, R_ext_trans, R_ext_rot, W_ext,
+                            W_int);
+    }
+
+    /*Update translation velocities and the translational accelerations */
+
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++) {
+        // const Vec3 a_trans_new = (R_ext_trans[i] - R_int_trans[i]) / M[i];
+        Vec3 a_trans_new = {0, 0, 0};
+
+        v_trans[i] += dt * 0.5 * (a_trans[i] + a_trans_new);
+        a_trans[i] = a_trans_new;
+    }
+
+    // rotations: Simo and Wong algorithm
+
+#pragma omp parallel for
+    for (Index i = 0; i < N; i++) {
+        if (i == 0)
+            continue;
+        const Mat3 &J = J_u[i].asDiagonal();
+        const Vec3 &L_n = L_rot[i];
+        Vec3 &omega_u = v_rot[i];
+        Vec3 &alpha_u = a_rot[i];
+        const Mat3 U_np = d_rot[i].to_matrix();
+        Vec3 &m = m_rot[i]; // Moment at t_{n+1/2}
+        const Vec3 m_np = R_ext_rot[i] - R_int_rot[i];
+        /*Evaluate moment at t_{n+1/2} by trapezoidal rule, i.e m_{n+1/2} = 1/2*(m_{n} + m_{n+1}) */
+        Vec3 m_half = 0.5 * (m + m_np);
+        m = m_np; // Update moment
+        const Vec3 omega_u_old = omega_u;
+
+        // REMOVE
+        //#ifndef NDEBUG
+        m_half = {-10, 10, 0};
+
+        Vec3 m_half_u = U_np.transpose() * m_half;
+
+        cout << "m_half\n" << m_half << endl;
+        cout << "m_half_u\n" << m_half_u << endl;
+
+        // cout << "m_np\n" << m_np << endl << "m_np_u\n" << m_np_u << endl;
+        assert(is_close(-m_half.x(), m_half.y()));
+        assert(is_close(m_half_u.x(), 0));
+        assert(is_close(m_half_u.z(), 0));
+        //#endif
+        cout << "J \n" << J << endl;
+        cout << "J inv\n" << J.inverse() << endl;
+        // omega_u = J.inverse() * U_np.transpose() * (L_n + dt * m_half);
+        Mat3 J_augm = J;
+        J_augm(0, 0) = 1;
+
+        if (config.n == 0) {
+
+            omega_u = {0, 0, 0};
+        } else {
+            // m_half = {0, 0, 0};
+            cout << "L_n\n" << L_n << endl;
+            omega_u = J_augm.inverse() * U_np.transpose() * (L_n + dt * m_half);
+        }
+
+        cout << "omega_u\n " << omega_u << endl;
+        assert(is_close(omega_u.x(), 0));
+        assert(is_close(omega_u.z(), 0));
+        // #ifndef NDEBUG
+        //         const Vec3 L_np = U_np * J * omega_u;
+        //         const Vec3 res = L_np - L_n - dt * m_half;
+        //         assert(is_close(res.norm(), 0.0));
+        // #endif
+        alpha_u = 2 / dt * (omega_u - omega_u_old) -
+                  alpha_u; // beta = 0.5 (not recommended by Simo, but seems to work better)
+        // alpha_u = (omega_u - omega_u_old) / dt; // Update angular acceration in body frame
+    }
+    /*Enforcing boundary conditions*/
+    set_simple_bc(config, geometry, beam);
+
+    if (check_energy_balance) {
+        kinetic_energy_update(N, M, J_u, v_trans, v_rot, KE);
+    }
+    // if (n_glob >= 10) {
+    //     cout << "exit ";
+    //     exit(0);
+    // }
 }
 
 void calc_initial_accelerations(const Config &config, const Geometry &geometry, const Borehole &borehole,
